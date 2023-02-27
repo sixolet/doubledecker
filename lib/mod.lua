@@ -5,11 +5,11 @@ local voice = require 'lib/voice'
 if note_players == nil then
     note_players = {}
 end
-
+local VOICE_CARDS = 6
 
 mod.hook.register("script_pre_init", "doubledecker pre init", function()
     local player = {
-        alloc = voice.new(8, voice.MODE_LRU),
+        alloc = voice.new(VOICE_CARDS, voice.MODE_LRU),
         notes = {},
     }
 
@@ -80,13 +80,19 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
     end
 
     function player:note_on(note, vel, properties)
+        local slot = self.notes[note]
+        if slot then
+            return
+        end
         local slot = self.alloc:get()
         local freq = music.note_num_to_freq(note)
+        local v = slot.id - 1
         slot.on_release = function()
             -- TODO: Find any voices this covered.
-            osc.send({ "localhost", 57120 }, "/doubledecker/set_voice", { slot.id - 1, "gate", 0 })
+            osc.send({ "localhost", 57120 }, "/doubledecker/set_voice", { v, "gate", 0 })
+            self.notes[note] = nil
         end
-        osc.send({ "localhost", 57120 }, "/doubledecker/note_on", { slot.id - 1, freq, vel });
+        osc.send({ "localhost", 57120 }, "/doubledecker/note_on", { v, freq, vel });
         self.notes[note] = slot;
     end
 

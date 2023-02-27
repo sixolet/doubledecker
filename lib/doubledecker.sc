@@ -1,5 +1,5 @@
 DoubleDecker {
-    classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction;
+    classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseSynth, <noiseBus;
 
     *initClass {
         params = (
@@ -34,9 +34,13 @@ DoubleDecker {
 				Server.default.sync;
 	            group = Group.new;
                 lfoGroup = Group.before(group);
-                lfoBusses = 8.collect(Bus.audio(Server.default, 1));
+                lfoBusses = 8.collect(Bus.control(Server.default, 1));
+                noiseBus = Bus.audio(Server.default, 1);
     	        "Double Decker Line".postln;
 			}).play;
+            SynthDef(\doubledeckerNoise, { |out|
+                Out.ar(out, WhiteNoise.ar);
+            }).add;
             SynthDef(\doubledeckerLfo, { |out, hz|
                 Out.kr(out, SinOsc.kr(hz));
             }).add;
@@ -64,7 +68,7 @@ DoubleDecker {
                 layerLfoToPw2, 
                 filtKeyfollow2, ampKeyfollow2,
                 // Both layers
-                globalLfoBus, globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                noiseBus, globalLfoBus, globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
                 mix, globalBrilliance, globalResonance,
                 pitchEnvAmount, portomento|
 
@@ -72,7 +76,7 @@ DoubleDecker {
                     | freq, velocity, pressure, gate,
                     globalLfo,
                     layerLfoFreq,
-                    pw, sawVsPulse, noise, 
+                    pw, sawVsPulse, noise, noiseUgen,
                     hpfFreq, hpfRes, lpfFreq, lpfRes,
                     fEnvI, fEnvPeak, fEnvA, fEnvD, fEnvR, fEnvHiInvert,
                     filtVsSine, aEnvA, aEnvD, aEnvS, aEnvR,
@@ -114,14 +118,14 @@ DoubleDecker {
                     modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
                     
                     // Our main oscs
-                    sound = SelectX.ar(sawVsPulse, [Saw.ar(modFreq), Pulse.ar(modFreq, modPw)]);
+                    sound = SelectX.ar(sawVsPulse, [Saw.ar(modFreq), Pulse.ar(modFreq, width: modPw)]);
 
                     // Add some noise
-                    sound = sound + (noise*WhiteNoise.ar());
+                    sound = sound + (noise*noiseUgen);
 
                     // Filter stage
                     sound = RHPF.ar(sound, modHpfFreq.clip(20, 20000), hpfRes.linexp(0, 1, 2, 0.05));
-                    sound = MoogFF.ar(sound, modLpfFreq, lpfRes*3.6);
+                    sound = RLPF.ar(sound, modLpfFreq, lpfRes.linexp(0, 1, 2, 0.05));
 
                     // Mix with sine.
                     sound = SelectX.ar(filtVsSine, [sound, SinOsc.ar(modFreq)]);
@@ -139,11 +143,12 @@ DoubleDecker {
                 };
                 var globalLfo = In.kr(globalLfoBus, 1);
                 var modFreq = ((pitchEnvAmount*Impulse.kr(0) + 1) * freq).lag(portomento);
+                var noiseUgen = In.ar(noiseBus, 1);
                 var layer1 = layer.value(
                     modFreq, velocity, pressure, gate,
                     globalLfo,
                     layerLfoFreq1,
-                    pw1, sawVsPulse1, noise1, 
+                    pw1, sawVsPulse1, noise1, noiseUgen,
                     hpfFreq1, hpfRes1, lpfFreq1, lpfRes1,
                     fEnvI1, fEnvPeak1, fEnvA1, fEnvD1, fEnvR1, fEnvHiInvert1,
                     filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
@@ -157,7 +162,7 @@ DoubleDecker {
                     modFreq, velocity, pressure, gate,
                     globalLfo,
                     layerLfoFreq2,
-                    pw2, sawVsPulse2, noise2, 
+                    pw2, sawVsPulse2, noise2, noiseUgen,
                     hpfFreq2, hpfRes2, lpfFreq2, lpfRes2,
                     fEnvI2, fEnvPeak2, fEnvA2, fEnvD2, fEnvR2, fEnvHiInvert2,
                     filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
@@ -176,23 +181,41 @@ DoubleDecker {
                 var voice = msg[1].asInteger;
                 var hz = msg[2].asFloat;
                 var velocity = msg[3].asFloat;
-                if(lfos[voice] == nil, {
-                    lfos[voice] = Synth.new(
-                        \doubledeckerLfo, 
-                        [\out, lfoBusses[voice], \hz, params.lfoFreq],
-                        target:lfoGroup);
-                });
-                if(voices[voice] == nil, {
-                    voices[voice] = Synth.new(
-                        \doubledecker, 
-                        [\freq, hz, \velocity, velocity, \globalLfo, lfoBusses[voice]]++params.asPairs,
-                        target: group);
-                    voices[voice].onFree({
-                        voices[voice] = nil;
+                Routine.new({
+                    if (noiseSynth == nil, {
+                        noiseSynth = Synth.new(
+                            \doubledeckerNoise, 
+                            [\out, noiseBus],
+                            target:lfoGroup);
+                        Server.default.sync;
                     });
-                }, {
-                    voices[voice].set(\freq, hz, \velocity, velocity, \gate, 1)
-                });                
+                    if(lfos[voice] == nil, {
+                        lfos[voice] = Synth.new(
+                            \doubledeckerLfo, 
+                            [\out, lfoBusses[voice], \hz, params.lfoFreq],
+                            target:lfoGroup);
+                    });
+                    if(voices[voice] == nil, {
+                        voices[voice] = Synth.new(
+                            \doubledecker, 
+                            [
+                                \freq, hz, 
+                                \velocity, velocity, 
+                                \globalLfo, lfoBusses[voice],
+                                \noiseBus, noiseBus,
+                            ]++params.asPairs,
+                            target: group);
+                        voices[voice].onFree({
+                            voices[voice] = nil;
+                            if(voices.every({|x, i| x == nil}) && (noiseSynth != nil), {
+                                noiseSynth.free;
+                                noiseSynth = nil;
+                            });
+                     });
+                    }, {
+                        voices[voice].set(\freq, hz, \velocity, velocity, \gate, 1)
+                    });
+                }).play;            
             }, "/doubledecker/note_on");
             OSCFunc.new({ |msg, time, addr, recvPort|
                 var voice = msg[1].asInteger;
