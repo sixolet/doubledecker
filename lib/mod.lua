@@ -7,6 +7,8 @@ if note_players == nil then
 end
 local VOICE_CARDS = 6
 
+local WAVEFORMS = { "none", 'saw', "pulse" }
+
 mod.hook.register("script_pre_init", "doubledecker pre init", function()
     local player = {
         alloc = voice.new(VOICE_CARDS, voice.MODE_LRU),
@@ -14,7 +16,7 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
     }
 
     function player:add_params()
-        params:add_group("doubledecker_group", "doubledecker", 48)
+        params:add_group("doubledecker_group", "doubledecker", 49)
         local function control_param(id, name, key, spec)
             params:add_control(id, name, spec)
             params:set_action(id, function(val)
@@ -27,6 +29,14 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
                 osc.send({ "localhost", 57120 }, "/doubledecker/set", { key, val })
             end)
         end
+        local function option_param(id, name, key, options, default)
+            params:add_option(id, name, options, default)
+            params:set_action(id, function(val)
+                osc.send({ "localhost", 57120 }, "/doubledecker/set", { key, val - 1 })
+            end)
+        end
+        control_param("doubledecker_mix", "mix", "mix", 
+            controlspec.new(0, 1, 'lin', 0, 0.5))
         for l = 1, 2 do
             params:add_separator("doubledecker_layer_" .. l, "layer " .. l)
             taper_param("doubledecker_layer_lfo_freq_" .. l, "pwm freq", "layerLfoFreq" .. l,
@@ -35,8 +45,8 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
                 controlspec.new(0, 1, 'lin', 0, 0.1))
             control_param("doubledecker_pw_" .. l, "pulse width", "pw" .. l,
                 controlspec.new(0.1, 0.5, 'lin', 0, 0.4))
-            control_param("doubledecker_shape_" .. l, "saw vs pulse", 'sawVsPulse' .. l,
-                controlspec.new(0, 1, 'lin', 0, 0.5))
+            option_param("doubledecker_shape_" .. l, "shape", "waveform" .. l,
+                WAVEFORMS, l + 1)
             taper_param("doubledecker_noise_" .. l, "noise", "noise" .. l,
                 0, 1, 0, 2)
             taper_param("doubledecker_hp_freq_" .. l, "hpf", "hpfFreq" .. l,
@@ -82,14 +92,20 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
     function player:note_on(note, vel, properties)
         local slot = self.notes[note]
         if slot then
+            --print("inc", note, slot.id)
+            slot.count = slot.count + 1
             return
         end
         local slot = self.alloc:get()
+        slot.count = 1
+        --print("create", note, slot.id)
         local freq = music.note_num_to_freq(note)
         local v = slot.id - 1
         slot.on_release = function()
+            --print("release", note, slot.id)
             -- TODO: Find any voices this covered.
             osc.send({ "localhost", 57120 }, "/doubledecker/set_voice", { v, "gate", 0 })
+            slot.count = nil
             self.notes[note] = nil
         end
         osc.send({ "localhost", 57120 }, "/doubledecker/note_on", { v, freq, vel });
@@ -142,7 +158,10 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
     function player:note_off(note)
         local slot = self.notes[note]
         if slot then
-            self.alloc:release(slot)
+            slot.count = slot.count - 1
+            if slot.count <= 0 then
+                self.alloc:release(slot)
+            end
         end
     end
 

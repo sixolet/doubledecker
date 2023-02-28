@@ -5,6 +5,7 @@ DoubleDecker {
         params = (
             lfoFreq: 4,
 
+            waveform1: 1,
             layerLfoFreq1: 3, pw1: 0.4, sawVsPulse1: 1, noise1: 0,
             hpfFreq1: 60, hpfRes1: 0.5, lpfFreq1: 600, lpfRes1: 0.5,
             fEnvI1: 0, fEnvPeak1: 1, fEnvA1: 0.01, fEnvD1: 1, fEnvR1:1, fEnvHiInvert1: 1,
@@ -13,6 +14,7 @@ DoubleDecker {
             presToGlobalLfoToFreq1: 0, prestoGlobalLfoToFilterFreq1: 0,
             layerLfoToPw1: 0.1, filtKeyfollow1: 0, ampKeyfollow1: 0,
 
+            waveform2: 2,
             layerLfoFreq2: 3, pw2: 0.4, sawVsPulse2: 0, noise2: 0,
             hpfFreq2: 600, hpfRes2: 0.5, lpfFreq2: 1200, lpfRes2: 0.5,
             fEnvI2: 0, fEnvPeak2: 1, fEnvA2: 0.01, fEnvD2: 1, fEnvR2:1, fEnvHiInvert2: 1,
@@ -44,125 +46,22 @@ DoubleDecker {
             SynthDef(\doubledeckerLfo, { |out, hz|
                 Out.kr(out, SinOsc.kr(hz));
             }).add;
-            SynthDef(\doubledecker, {
-                | 
-                out, freq=220, velocity=0.4, pressure=0.4, gate=1, pan=0,// per-note stuff
-                // layer 1
-                layerLfoFreq1=3, pw1=0.4, sawVsPulse1=0.5, noise1=0,
-                hpfFreq1=60, hpfRes1=0.5, lpfFreq1=2000, lpfRes1=0.5,
-                fEnvI1=0, fEnvPeak1=1, fEnvA1=0.01, fEnvD1=1, fEnvR1=1, fEnvHiInvert1=1,
-                filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
-                velToFilt1, velToAmp1,
-                presToFilt1, presToAmp1,
-                presToGlobalLfoToFreq1, presToGlobalLfoToFilterFreq1,
-                layerLfoToPw1, 
-                filtKeyfollow1, ampKeyfollow1,
-                // layer 2
-                layerLfoFreq2, pw2, sawVsPulse2, noise2,
-                hpfFreq2, hpfRes2, lpfFreq2, lpfRes2,
-                fEnvI2, fEnvPeak2, fEnvA2, fEnvD2, fEnvR2, fEnvHiInvert2,
-                filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
-                velToFilt2, velToAmp2,
-                presToFilt2, presToAmp2,
-                presToGlobalLfoToFreq2, presToGlobalLfoToFilterFreq2,
-                layerLfoToPw2, 
-                filtKeyfollow2, ampKeyfollow2,
-                // Both layers
-                noiseBus, globalLfoBus, globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
-                mix, globalBrilliance, globalResonance,
-                pitchEnvAmount, portomento|
-
-                var layer = { 
-                    | freq, velocity, pressure, gate,
-                    globalLfo,
-                    layerLfoFreq,
-                    pw, sawVsPulse, noise, noiseUgen,
-                    hpfFreq, hpfRes, lpfFreq, lpfRes,
-                    fEnvI, fEnvPeak, fEnvA, fEnvD, fEnvR, fEnvHiInvert,
-                    filtVsSine, aEnvA, aEnvD, aEnvS, aEnvR,
-                    velToFilt, velToAmp,
-                    presToFilt, presToAmp,
-                    presToGlobalLfoToFreq, presToGlobalLfoToFilterFreq,
-                    layerLfoToPw, 
-                    globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
-                    filtKeyfollow, ampKeyfollow |
-                    var sound;
-                    var layerLfo;
-                    var filterEnv, ampEnv;
-                    var modFreq, modLpfFreq, modHpfFreq, modLayerLfoFreq, modAmp, modPw;
-                    filterEnv = EnvGen.kr(
-                        Env.new(levels: [fEnvI, fEnvPeak, 0, fEnvI], times: [fEnvA, fEnvD, fEnvR], releaseNode: 2), 
-                        gate,
-                        doneAction: Done.none);
-                    ampEnv = EnvGen.kr(Env.adsr(aEnvA, aEnvD, aEnvS, aEnvR), gate, doneAction: Done.none);
-                    // Full range of frequency modulation is about +/- a full step; gentle.
-                    modFreq = freq * (1 + (0.1*globalLfoToFreq*globalLfo));
-                    modFreq = modFreq * (1 + (0.1*presToGlobalLfoToFreq*pressure*globalLfo));
-                    // Full range of filter modulation is about +/- four octaves; less gentle.
-                    modLpfFreq = lpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
-                    modLpfFreq = modLpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
-                    modLpfFreq = modLpfFreq * filterEnv.linexp(-1, 1, 1/16, 16);
-                    modLpfFreq = modLpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
-                    modLpfFreq = modLpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/16, 16);
-                    modLpfFreq = modLpfFreq.clip(20, 20000);
-
-                    modHpfFreq = hpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
-                    modHpfFreq = modHpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
-                    modHpfFreq = modHpfFreq * (fEnvHiInvert*filterEnv).linexp(-1, 1, 1/16, 16);
-                    modHpfFreq = modHpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
-                    modHpfFreq = modHpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/16, 16);
-                    modHpfFreq = modHpfFreq.clip(20, 20000);
-
-                    // Pulse width.
-                    layerLfo = SinOsc.kr(layerLfoFreq);
-                    modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
-                    
-                    // Our main oscs
-                    sound = SelectX.ar(sawVsPulse, [Saw.ar(modFreq), Pulse.ar(modFreq, width: modPw)]);
-
-                    // Add some noise
-                    sound = sound + (noise*noiseUgen);
-
-                    // Filter stage
-                    sound = RHPF.ar(sound, modHpfFreq.clip(20, 20000), hpfRes.linexp(0, 1, 2, 0.05));
-                    sound = RLPF.ar(sound, modLpfFreq, lpfRes.linexp(0, 1, 2, 0.05));
-
-                    // Mix with sine.
-                    sound = SelectX.ar(filtVsSine, [sound, SinOsc.ar(modFreq)]);
-
-                    // Velocity to amp
-                    ampEnv = SelectX.kr(velToAmp, [ampEnv, velocity*ampEnv]);
-                    // Pressure to amp
-                    ampEnv = SelectX.kr(presToAmp, [ampEnv, pressure*ampEnv]);
-                    // Global LFO to amp
-                    ampEnv = SelectX.kr(globalLfoToAmp, [ampEnv, globalLfo.range(0, 1)*ampEnv]);
-
-                    // Amp envelope.
-                    sound = ampEnv*sound;                
-                    sound;
-                };
-                var globalLfo = In.kr(globalLfoBus, 1);
-                var modFreq = ((pitchEnvAmount*Impulse.kr(0) + 1) * freq).lag(portomento);
-                var noiseUgen = In.ar(noiseBus, 1);
-                var layer1 = layer.value(
-                    modFreq, velocity, pressure, gate,
-                    globalLfo,
-                    layerLfoFreq1,
-                    pw1, sawVsPulse1, noise1, noiseUgen,
-                    hpfFreq1, hpfRes1, lpfFreq1, lpfRes1,
-                    fEnvI1, fEnvPeak1, fEnvA1, fEnvD1, fEnvR1, fEnvHiInvert1,
+            (["X", "S", "P"]!2).allTuples.do { |tup|
+                SynthDef(("doubledecker"++tup[0]++tup[1]).asSymbol, {
+                    | 
+                    out, freq=220, velocity=0.4, pressure=0.4, gate=1, pan=0,// per-note stuff
+                    // layer 1
+                    layerLfoFreq1=3, pw1=0.4, sawVsPulse1=0.5, noise1=0,
+                    hpfFreq1=60, hpfRes1=0.5, lpfFreq1=2000, lpfRes1=0.5,
+                    fEnvI1=0, fEnvPeak1=1, fEnvA1=0.01, fEnvD1=1, fEnvR1=1, fEnvHiInvert1=1,
                     filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
                     velToFilt1, velToAmp1,
                     presToFilt1, presToAmp1,
                     presToGlobalLfoToFreq1, presToGlobalLfoToFilterFreq1,
                     layerLfoToPw1, 
-                    globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
-                    filtKeyfollow1, ampKeyfollow1);
-                var layer2 = layer.value(
-                    modFreq, velocity, pressure, gate,
-                    globalLfo,
-                    layerLfoFreq2,
-                    pw2, sawVsPulse2, noise2, noiseUgen,
+                    filtKeyfollow1, ampKeyfollow1,
+                    // layer 2
+                    layerLfoFreq2, pw2, sawVsPulse2, noise2,
                     hpfFreq2, hpfRes2, lpfFreq2, lpfRes2,
                     fEnvI2, fEnvPeak2, fEnvA2, fEnvD2, fEnvR2, fEnvHiInvert2,
                     filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
@@ -170,13 +69,124 @@ DoubleDecker {
                     presToFilt2, presToAmp2,
                     presToGlobalLfoToFreq2, presToGlobalLfoToFilterFreq2,
                     layerLfoToPw2, 
-                    globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
-                    filtKeyfollow2, ampKeyfollow2);
-                var mixed = LinSelectX.ar(mix, [layer1, layer2]);
-                DetectSilence.ar(mixed+Impulse.ar(0), doneAction: Done.freeSelf);
-                Out.ar(out, Pan2.ar(mixed, pan));
-            }).add;
+                    filtKeyfollow2, ampKeyfollow2,
+                    // Both layers
+                    noiseBus, globalLfoBus, globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                    mix, globalBrilliance, globalResonance,
+                    pitchEnvAmount, portomento|
 
+                    var layer = { 
+                        | waveform,
+                        freq, velocity, pressure, gate,
+                        globalLfo,
+                        layerLfoFreq,
+                        pw, sawVsPulse, noise, noiseUgen,
+                        hpfFreq, hpfRes, lpfFreq, lpfRes,
+                        fEnvI, fEnvPeak, fEnvA, fEnvD, fEnvR, fEnvHiInvert,
+                        filtVsSine, aEnvA, aEnvD, aEnvS, aEnvR,
+                        velToFilt, velToAmp,
+                        presToFilt, presToAmp,
+                        presToGlobalLfoToFreq, presToGlobalLfoToFilterFreq,
+                        layerLfoToPw, 
+                        globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                        filtKeyfollow, ampKeyfollow |
+                        var sound;
+                        var layerLfo;
+                        var filterEnv, ampEnv;
+                        var modFreq, modLpfFreq, modHpfFreq, modLayerLfoFreq, modAmp, modPw;
+                        filterEnv = EnvGen.kr(
+                            Env.new(levels: [fEnvI, fEnvPeak, 0, fEnvI], times: [fEnvA, fEnvD, fEnvR], releaseNode: 2), 
+                            gate,
+                            doneAction: Done.none);
+                        ampEnv = EnvGen.kr(Env.adsr(aEnvA, aEnvD, aEnvS, aEnvR), gate, doneAction: Done.none);
+                        // Full range of frequency modulation is about +/- a full step; gentle.
+                        modFreq = freq * (1 + (0.1*globalLfoToFreq*globalLfo));
+                        modFreq = modFreq * (1 + (0.1*presToGlobalLfoToFreq*pressure*globalLfo));
+                        // Full range of filter modulation is about +/- four octaves; less gentle.
+                        modLpfFreq = lpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq * filterEnv.linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq.clip(20, 17000);
+
+                        modHpfFreq = hpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (fEnvHiInvert*filterEnv).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq.clip(20, 17000);
+
+                        // Our main oscs
+                        sound = switch(waveform.asSymbol,
+                            \X, {0},
+                            \S, {Saw.ar(modFreq)},
+                            \P, {
+                                    layerLfo = SinOsc.kr(layerLfoFreq);
+                                    modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
+                                    Pulse.ar(modFreq, width: modPw);
+                                },
+                            {0});
+                        
+                        // Add some noise
+                        sound = sound + (noise*noiseUgen);
+
+                        // Filter stage
+                        sound = RHPF.ar(sound, modHpfFreq, hpfRes.linexp(0, 1, 1.2, 0.05));
+                        sound = RLPF.ar(sound, modLpfFreq, lpfRes.linexp(0, 1, 1.2, 0.05));
+
+                        // Mix with sine.
+                        sound = LinSelectX.ar(filtVsSine, [sound, SinOsc.ar(modFreq)]);
+
+                        // Velocity to amp
+                        ampEnv = LinSelectX.kr(velToAmp, [ampEnv, velocity*ampEnv]);
+                        // Pressure to amp
+                        ampEnv = LinSelectX.kr(presToAmp, [ampEnv, pressure*ampEnv]);
+                        // Global LFO to amp
+                        ampEnv = LinSelectX.kr(globalLfoToAmp, [ampEnv, globalLfo.range(0, 1)*ampEnv]);
+
+                        // Amp envelope.
+                        sound = ampEnv*sound;                
+                        sound;
+                    };
+                    var globalLfo = In.kr(globalLfoBus, 1);
+                    var modFreq = ((pitchEnvAmount*Impulse.kr(0) + 1) * freq).lag(portomento);
+                    var noiseUgen = In.ar(noiseBus, 1);
+                    var layer1 = layer.value(
+                        tup[0].asSymbol,
+                        modFreq, velocity, pressure, gate,
+                        globalLfo,
+                        layerLfoFreq1,
+                        pw1, sawVsPulse1, noise1, noiseUgen,
+                        hpfFreq1, hpfRes1, lpfFreq1, lpfRes1,
+                        fEnvI1, fEnvPeak1, fEnvA1, fEnvD1, fEnvR1, fEnvHiInvert1,
+                        filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
+                        velToFilt1, velToAmp1,
+                        presToFilt1, presToAmp1,
+                        presToGlobalLfoToFreq1, presToGlobalLfoToFilterFreq1,
+                        layerLfoToPw1, 
+                        globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                        filtKeyfollow1, ampKeyfollow1);
+                    var layer2 = layer.value(
+                        tup[1].asSymbol,
+                        modFreq, velocity, pressure, gate,
+                        globalLfo,
+                        layerLfoFreq2,
+                        pw2, sawVsPulse2, noise2, noiseUgen,
+                        hpfFreq2, hpfRes2, lpfFreq2, lpfRes2,
+                        fEnvI2, fEnvPeak2, fEnvA2, fEnvD2, fEnvR2, fEnvHiInvert2,
+                        filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
+                        velToFilt2, velToAmp2,
+                        presToFilt2, presToAmp2,
+                        presToGlobalLfoToFreq2, presToGlobalLfoToFilterFreq2,
+                        layerLfoToPw2, 
+                        globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                        filtKeyfollow2, ampKeyfollow2);
+                    var mixed = LinSelectX.ar(mix, [layer1, layer2]);
+                    DetectSilence.ar(mixed+Impulse.ar(0), doneAction: Done.freeSelf);
+                    Out.ar(out, Pan2.ar(mixed, pan));
+                }).add;
+            };
             OSCFunc.new({ |msg, time, addr, recvPort|
                 var voice = msg[1].asInteger;
                 var hz = msg[2].asFloat;
@@ -196,8 +206,10 @@ DoubleDecker {
                             target:lfoGroup);
                     });
                     if(voices[voice] == nil, {
+                        var l1 = [\X, \S, \P][params.waveform1];
+                        var l2 = [\X, \S, \P][params.waveform2];
                         voices[voice] = Synth.new(
-                            \doubledecker, 
+                            ("doubledecker" ++ l1 ++ l2), 
                             [
                                 \freq, hz, 
                                 \velocity, velocity, 
@@ -223,6 +235,7 @@ DoubleDecker {
                 var value = msg[3].asFloat;                
                 if(voices[voice] != nil, {
                     voices[voice].set(key, value);
+                    // "% %\n".postf(key, value);
                 });                
             }, "/doubledecker/set_voice");
 
