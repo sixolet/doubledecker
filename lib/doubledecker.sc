@@ -3,29 +3,33 @@ DoubleDecker {
 
     *initClass {
         params = (
-            lfoFreq: 4,
+            globalLfoFreq: 4,
 
-            waveform1: 1,
+            waveform1: 1, pitchRatio1: 1,
             layerLfoFreq1: 3, pw1: 0.4, sawVsPulse1: 1, noise1: 0,
             hpfFreq1: 60, hpfRes1: 0.5, lpfFreq1: 600, lpfRes1: 0.5,
             fEnvI1: 0, fEnvPeak1: 1, fEnvA1: 0.01, fEnvD1: 1, fEnvR1:1, fEnvHiInvert1: 1,
             filtVsSine1: 0.2, aEnvA1: 0.01, aEnvD1: 1, aEnvS1: 0.5, aEnvR1: 1,
             velToFilt1: 0.2, velToAmp1: 0.8, presToFilt1: 0.5, presToAmp1: 0.5,
-            presToGlobalLfoToFreq1: 0, prestoGlobalLfoToFilterFreq1: 0,
-            layerLfoToPw1: 0.1, filtKeyfollow1: 0, ampKeyfollow1: 0,
+            layerLfoToPw1: 0.1, 
+            filtKeyfollow1: 0, ampKeyfollow1: 0,
 
-            waveform2: 2,
+            waveform2: 2, pitchRatio2: 1,
             layerLfoFreq2: 3, pw2: 0.4, sawVsPulse2: 0, noise2: 0,
             hpfFreq2: 600, hpfRes2: 0.5, lpfFreq2: 1200, lpfRes2: 0.5,
             fEnvI2: 0, fEnvPeak2: 1, fEnvA2: 0.01, fEnvD2: 1, fEnvR2:1, fEnvHiInvert2: 1,
             filtVsSine2: 0.2, aEnvA2: 0.01, aEnvD2: 1, aEnvS2: 0.5, aEnvR2: 1,
             velToFilt2: 0.2, velToAmp2: 0.8, presToFilt2: 0.5, presToAmp2: 0.5,
-            presToGlobalLfoToFreq2: 0, prestoGlobalLfoToFilterFreq2: 0,
-            layerLfoToPw2: 0.1, filtKeyfollow2: 0, ampKeyfollow2: 0,
+            layerLfoToPw2: 0.1, 
+            filtKeyfollow2: 0, ampKeyfollow2: 0,
 
-            globalLfoToFreq: 0, globalLfoToFilterFreq: 0, globalLfoToAmp: 0,
+            globalLfoToFreq: 0, presToGlobalLfoToFreq: 0, 
+            globalLfoToFilterFreq: 0, presToGlobalLfoToFilterFreq: 0,
+            globalLfoToAmp: 0, presToGlobalLfoToAmp: 0,
             mix: 0.5, globalBrilliance: 0, globalResonance: 0,
-            pitchEnvAmount: 0, portomento: 0        
+            detune: 0, drift: 0,
+            pitchEnvAmount: 0, portomento: 0,
+            amp: 0.25,      
         );
 		voices = nil!8;
         lfos = nil!8;
@@ -43,40 +47,46 @@ DoubleDecker {
             SynthDef(\doubledeckerNoise, { |out|
                 Out.ar(out, WhiteNoise.ar);
             }).add;
-            SynthDef(\doubledeckerLfo, { |out, hz|
-                Out.kr(out, SinOsc.kr(hz));
+            SynthDef(\doubledeckerLfo, { 
+                |out, globalLfoFreq, pressure, presToGlobalLfoFreq|
+                Out.kr(out, SinOsc.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
             }).add;
             (["X", "S", "P"]!2).allTuples.do { |tup|
                 SynthDef(("doubledecker"++tup[0]++tup[1]).asSymbol, {
                     | 
                     out, freq=220, velocity=0.4, pressure=0.4, gate=1, pan=0,// per-note stuff
                     // layer 1
+                    pitchRatio1=1,
                     layerLfoFreq1=3, pw1=0.4, sawVsPulse1=0.5, noise1=0,
                     hpfFreq1=60, hpfRes1=0.5, lpfFreq1=2000, lpfRes1=0.5,
                     fEnvI1=0, fEnvPeak1=1, fEnvA1=0.01, fEnvD1=1, fEnvR1=1, fEnvHiInvert1=1,
                     filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
                     velToFilt1, velToAmp1,
                     presToFilt1, presToAmp1,
-                    presToGlobalLfoToFreq1, presToGlobalLfoToFilterFreq1,
                     layerLfoToPw1, 
                     filtKeyfollow1, ampKeyfollow1,
                     // layer 2
+                    pitchRatio2=1,
                     layerLfoFreq2, pw2, sawVsPulse2, noise2,
                     hpfFreq2, hpfRes2, lpfFreq2, lpfRes2,
                     fEnvI2, fEnvPeak2, fEnvA2, fEnvD2, fEnvR2, fEnvHiInvert2,
                     filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
                     velToFilt2, velToAmp2,
                     presToFilt2, presToAmp2,
-                    presToGlobalLfoToFreq2, presToGlobalLfoToFilterFreq2,
                     layerLfoToPw2, 
                     filtKeyfollow2, ampKeyfollow2,
                     // Both layers
-                    noiseBus, globalLfoBus, globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                    noiseBus, globalLfoBus, 
+                    globalLfoToFreq, presToGlobalLfoToFreq,
+                    globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
+                    globalLfoToAmp, presToGlobalLfoToAmp,
                     mix, globalBrilliance, globalResonance,
-                    pitchEnvAmount, portomento|
-
+                    detune, drift,
+                    pitchEnvAmount, portomento,
+                    amp|
+                    var keyRatio = freq/261.63;
                     var layer = { 
-                        | waveform,
+                        | waveform, keyRatio,
                         freq, velocity, pressure, gate,
                         globalLfo,
                         layerLfoFreq,
@@ -86,24 +96,24 @@ DoubleDecker {
                         filtVsSine, aEnvA, aEnvD, aEnvS, aEnvR,
                         velToFilt, velToAmp,
                         presToFilt, presToAmp,
-                        presToGlobalLfoToFreq, presToGlobalLfoToFilterFreq,
                         layerLfoToPw, 
-                        globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                        globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
+                        globalLfoToAmp, presToGlobalLfoToAmp,
                         filtKeyfollow, ampKeyfollow |
                         var sound;
                         var layerLfo;
                         var filterEnv, ampEnv;
-                        var modFreq, modLpfFreq, modHpfFreq, modLayerLfoFreq, modAmp, modPw;
+                        var modLpfFreq, modHpfFreq, modLayerLfoFreq, modAmp, modPw;
+                        var filtFreqRatio = keyRatio**filtKeyfollow;
+                        var ampRatio = (keyRatio**ampKeyfollow).clip(0, 4);
                         filterEnv = EnvGen.kr(
                             Env.new(levels: [fEnvI, fEnvPeak, 0, fEnvI], times: [fEnvA, fEnvD, fEnvR], releaseNode: 2), 
                             gate,
                             doneAction: Done.none);
                         ampEnv = EnvGen.kr(Env.adsr(aEnvA, aEnvD, aEnvS, aEnvR), gate, doneAction: Done.none);
-                        // Full range of frequency modulation is about +/- a full step; gentle.
-                        modFreq = freq * (1 + (0.1*globalLfoToFreq*globalLfo));
-                        modFreq = modFreq * (1 + (0.1*presToGlobalLfoToFreq*pressure*globalLfo));
                         // Full range of filter modulation is about +/- four octaves; less gentle.
                         modLpfFreq = lpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq * filtFreqRatio;
                         modLpfFreq = modLpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
                         modLpfFreq = modLpfFreq * filterEnv.linexp(-1, 1, 1/16, 16);
                         modLpfFreq = modLpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
@@ -111,6 +121,7 @@ DoubleDecker {
                         modLpfFreq = modLpfFreq.clip(20, 17000);
 
                         modHpfFreq = hpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * filtFreqRatio;
                         modHpfFreq = modHpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
                         modHpfFreq = modHpfFreq * (fEnvHiInvert*filterEnv).linexp(-1, 1, 1/16, 16);
                         modHpfFreq = modHpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
@@ -120,11 +131,11 @@ DoubleDecker {
                         // Our main oscs
                         sound = switch(waveform.asSymbol,
                             \X, {0},
-                            \S, {Saw.ar(modFreq)},
+                            \S, {Saw.ar(freq)},
                             \P, {
                                     layerLfo = SinOsc.kr(layerLfoFreq);
                                     modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
-                                    Pulse.ar(modFreq, width: modPw);
+                                    Pulse.ar(freq, width: modPw);
                                 },
                             {0});
                         
@@ -136,7 +147,7 @@ DoubleDecker {
                         sound = RLPF.ar(sound, modLpfFreq, lpfRes.linexp(0, 1, 1.2, 0.05));
 
                         // Mix with sine.
-                        sound = LinSelectX.ar(filtVsSine, [sound, SinOsc.ar(modFreq)]);
+                        sound = LinSelectX.ar(filtVsSine, [sound, SinOsc.ar(freq)]);
 
                         // Velocity to amp
                         ampEnv = LinSelectX.kr(velToAmp, [ampEnv, velocity*ampEnv]);
@@ -146,15 +157,23 @@ DoubleDecker {
                         ampEnv = LinSelectX.kr(globalLfoToAmp, [ampEnv, globalLfo.range(0, 1)*ampEnv]);
 
                         // Amp envelope.
-                        sound = ampEnv*sound;                
+                        sound = ampEnv*ampRatio*sound;              
                         sound;
                     };
-                    var globalLfo = In.kr(globalLfoBus, 1);
-                    var modFreq = ((pitchEnvAmount*Impulse.kr(0) + 1) * freq).lag(portomento);
-                    var noiseUgen = In.ar(noiseBus, 1);
-                    var layer1 = layer.value(
+                    var globalLfo, modFreq, noiseUgen, layer1, layer2, mixed, detuneRatio, driftAddition;
+                    globalLfo = In.kr(globalLfoBus, 1);
+                    detuneRatio = detune.linexp(0, 1, 1, 2**(1/12));
+                    driftAddition = 3*drift*LFNoise1.kr(0.01);
+                    modFreq = freq.lag(portomento);
+                    modFreq = modFreq * (1 + (pitchEnvAmount*EnvGen.kr(Env.perc(attackTime: 0, releaseTime: portomento))));
+                    // Full range of frequency modulation is about +/- a full step; gentle.
+                    modFreq = modFreq * (1 + (0.1*globalLfoToFreq*globalLfo));
+                    modFreq = modFreq * (1 + (0.1*presToGlobalLfoToFreq*pressure*globalLfo));
+                    noiseUgen = In.ar(noiseBus, 1);
+                    layer1 = layer.value(
                         tup[0].asSymbol,
-                        modFreq, velocity, pressure, gate,
+                        keyRatio,
+                        (detuneRatio*pitchRatio1*modFreq)+driftAddition, velocity, pressure, gate,
                         globalLfo,
                         layerLfoFreq1,
                         pw1, sawVsPulse1, noise1, noiseUgen,
@@ -163,13 +182,14 @@ DoubleDecker {
                         filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
                         velToFilt1, velToAmp1,
                         presToFilt1, presToAmp1,
-                        presToGlobalLfoToFreq1, presToGlobalLfoToFilterFreq1,
                         layerLfoToPw1, 
-                        globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                        globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
+                        globalLfoToAmp, presToGlobalLfoToAmp,
                         filtKeyfollow1, ampKeyfollow1);
-                    var layer2 = layer.value(
+                    layer2 = layer.value(
                         tup[1].asSymbol,
-                        modFreq, velocity, pressure, gate,
+                        keyRatio,
+                        (detuneRatio.reciprocal*pitchRatio2*modFreq)+driftAddition, velocity, pressure, gate,
                         globalLfo,
                         layerLfoFreq2,
                         pw2, sawVsPulse2, noise2, noiseUgen,
@@ -178,12 +198,13 @@ DoubleDecker {
                         filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
                         velToFilt2, velToAmp2,
                         presToFilt2, presToAmp2,
-                        presToGlobalLfoToFreq2, presToGlobalLfoToFilterFreq2,
                         layerLfoToPw2, 
-                        globalLfoToFreq, globalLfoToFilterFreq, globalLfoToAmp,
+                        globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
+                        globalLfoToAmp, presToGlobalLfoToAmp,
                         filtKeyfollow2, ampKeyfollow2);
-                    var mixed = LinSelectX.ar(mix, [layer1, layer2]);
+                    mixed = LinSelectX.ar(mix, [layer1, layer2]);
                     DetectSilence.ar(mixed+Impulse.ar(0), doneAction: Done.freeSelf);
+                    mixed = amp*mixed;
                     Out.ar(out, Pan2.ar(mixed, pan));
                 }).add;
             };
@@ -202,7 +223,11 @@ DoubleDecker {
                     if(lfos[voice] == nil, {
                         lfos[voice] = Synth.new(
                             \doubledeckerLfo, 
-                            [\out, lfoBusses[voice], \hz, params.lfoFreq],
+                            [
+                                \out, lfoBusses[voice], 
+                                \globalLfoFreq, params.globalLfoFreq,
+                                \pressure, 0
+                            ],
                             target:lfoGroup);
                     });
                     if(voices[voice] == nil, {
@@ -236,7 +261,10 @@ DoubleDecker {
                 if(voices[voice] != nil, {
                     voices[voice].set(key, value);
                     // "% %\n".postf(key, value);
-                });                
+                });
+                if(lfos[voice] != nil, {
+                    lfos[voice].set(key, value);
+                });
             }, "/doubledecker/set_voice");
 
             OSCFunc.new({ |msg, time, addr, recvPort|

@@ -9,6 +9,9 @@ local VOICE_CARDS = 6
 
 local WAVEFORMS = { "none", 'saw', "pulse" }
 
+local PITCH_RATIOS = { "1/4", "1/3", "1/2", "2/3", "1", "3/2", "2", "3", "4" }
+local PITCH_RATIO_VALUE = { 1 / 4, 1 / 3, 1 / 2, 2 / 3, 1, 3 / 2, 2, 3, 4 }
+
 mod.hook.register("script_pre_init", "doubledecker pre init", function()
     local player = {
         alloc = voice.new(VOICE_CARDS, voice.MODE_LRU),
@@ -16,7 +19,7 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
     }
 
     function player:add_params()
-        params:add_group("doubledecker_group", "doubledecker", 49)
+        params:add_group("doubledecker_group", "doubledecker", 66)
         local function control_param(id, name, key, spec)
             params:add_control(id, name, spec)
             params:set_action(id, function(val)
@@ -29,16 +32,33 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
                 osc.send({ "localhost", 57120 }, "/doubledecker/set", { key, val })
             end)
         end
-        local function option_param(id, name, key, options, default)
+        local function option_param(id, name, key, options, default, f)
+            if f == nil then
+                f = function(v) return v - 1 end
+            end
             params:add_option(id, name, options, default)
             params:set_action(id, function(val)
-                osc.send({ "localhost", 57120 }, "/doubledecker/set", { key, val - 1 })
+                osc.send({ "localhost", 57120 }, "/doubledecker/set", { key, f(val) })
             end)
         end
-        control_param("doubledecker_mix", "mix", "mix", 
+        control_param("doubledecker_mix", "mix", "mix",
             controlspec.new(0, 1, 'lin', 0, 0.5))
+        taper_param("doubledecker_amp", "amp", "amp",
+            0, 1, 0.25, 2)
+        control_param("doubledecker_pan", "pan", "pan",
+            controlspec.new( -1, 1, 'lin', 0, 0))
+        control_param("doubledecker_detune", "detune", "detune",
+            controlspec.new(0, 1, 'lin', 0, 0))
+        control_param("doubledecker_drift", "drift", "drift",
+            controlspec.new(0, 1, 'lin', 0, 0))
+        control_param("doubledecker_pitch_env", "pitch env amount", "pitchEnvAmount",
+            controlspec.new( -0.75, 2, 'lin', 0, 0))
+        taper_param("doubledecker_portomento", "portomento", "portomento",
+            0, 10, 0, 2, 's')
         for l = 1, 2 do
             params:add_separator("doubledecker_layer_" .. l, "layer " .. l)
+            option_param("doubledecker_pitch_ratio_" .. l, "pitch ratio", "pitchRatio" .. l,
+                PITCH_RATIOS, 5, function(v) return PITCH_RATIO_VALUE[v] end)
             taper_param("doubledecker_layer_lfo_freq_" .. l, "pwm freq", "layerLfoFreq" .. l,
                 0.05, 20, 4, 2, "Hz")
             control_param("doubledecker_pwm_" .. l, "pwm", "layerLfoToPw" .. l,
@@ -86,6 +106,23 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
             control_param("doubledecker_pressure_to_amp_" .. l, "pressure->amp", "presToAmp" .. l,
                 controlspec.new(0, 1, 'lin', 0, 0.5))
         end
+        params:add_separator("doubledecker_lfo", "lfo")
+        taper_param("doubledecker_lfo_rate", "lfo freq", "globalLfoFreq",
+            1 / 30, 20, 4, 2, 'Hz')
+        taper_param("doubledecker_lfo_to_freq", "vibrato", "globalLfoToFreq",
+            0, 1, 0, 2)
+        taper_param("doubledecker_lfo_to_filter", "filter lfo mod", "globalLfoToFilterFreq",
+            0, 1, 0, 2)
+        taper_param("doubledecker_lfo_to_amp", "amp lfo mod", "globalLfoToAmp",
+            0, 1, 0, 2)
+        taper_param("doubledecker_lfo_pres_to_freq", "press->lfo freq", "presToGlobalLfoFreq",
+            0, 1, 0, 2)
+        taper_param("doubledecker_lfo_pres_to_vibrato", "press->vibrato", "presToGlobalLfoToFreq",
+            0, 1, 0, 2)
+        taper_param("doubledecker_lfo_pres_to_filt", "press->filt lfo", "presToGlobalLfoToFilterFreq",
+            0, 1, 0, 2)
+        taper_param("doubledecker_lfo_pres_to_amp", "press->amp lfo", "presToGlobalLfoToAmp",
+            0, 1, 0, 2)
         params:hide("doubledecker_group")
     end
 
