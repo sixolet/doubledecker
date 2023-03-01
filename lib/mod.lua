@@ -19,7 +19,7 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
     }
 
     function player:add_params()
-        params:add_group("doubledecker_group", "doubledecker", 66)
+        params:add_group("doubledecker_group", "doubledecker", 70)
         local function control_param(id, name, key, spec)
             params:add_control(id, name, spec)
             params:set_action(id, function(val)
@@ -74,7 +74,7 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
             control_param("doubledecker_hp_res_" .. l, "hp res", "hpfRes" .. l,
                 controlspec.new(0, 1, 'lin', 0, 0.2))
             taper_param("doubledecker_lp_freq_" .. l, "lpf", "lpfFreq" .. l,
-                20, 20000, 600, 2, 'Hz')
+                40, 20000, 600, 2, 'Hz')
             control_param("doubledecker_lp_res_" .. l, "lp res", "lpfRes" .. l,
                 controlspec.new(0, 1, 'lin', 0, 0.2))
             control_param("doubledecker_filter_init_" .. l, "filter I lvl", 'fEnvI' .. l,
@@ -105,6 +105,10 @@ mod.hook.register("script_pre_init", "doubledecker pre init", function()
                 controlspec.new(0, 1, 'lin', 0, 0.5))
             control_param("doubledecker_pressure_to_amp_" .. l, "pressure->amp", "presToAmp" .. l,
                 controlspec.new(0, 1, 'lin', 0, 0.5))
+            control_param("doubledecker_filter_keyfollow_" .. l, "filter keyfollow", "filtKeyfollow" .. l,
+                controlspec.new( -1, 1, 'lin', 0, 0))
+            control_param("doubledecker_amp_keyfollow_" .. l, "amp keyfollow", "ampKeyfollow" .. l,
+                controlspec.new( -1, 1, 'lin', 0, 0))
         end
         params:add_separator("doubledecker_lfo", "lfo")
         taper_param("doubledecker_lfo_rate", "lfo freq", "globalLfoFreq",
