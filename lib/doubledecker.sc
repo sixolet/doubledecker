@@ -17,7 +17,7 @@ DoubleDecker {
                 Out.ar(out, WhiteNoise.ar);
             }).add;
             SynthDef(\doubledeckerLfo, { 
-                |out, globalLfoFreq, pressure, presToGlobalLfoFreq|
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
                 Out.kr(out, SinOsc.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
             }).add;
             (["X", "S", "P"]!2).allTuples.do { |tup|
@@ -181,7 +181,7 @@ DoubleDecker {
 
     *initClass {
         params = (
-            globalLfoFreq: 4,
+            globalLfoFreq: 4, presToGlobalLfoFreq: 0,
 
             waveform1: 1, pitchRatio1: 1,
             layerLfoFreq1: 3, pw1: 0.4, sawVsPulse1: 1, noise1: 0,
@@ -244,7 +244,7 @@ DoubleDecker {
                             [
                                 \freq, hz, 
                                 \velocity, velocity, 
-                                \globalLfo, lfoBusses[voice],
+                                \globalLfoBus, lfoBusses[voice],
                                 \noiseBus, noiseBus,
                             ]++params.asPairs,
                             target: group);
