@@ -1,49 +1,18 @@
 DoubleDecker {
     classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseSynth, <noiseBus;
 
-    *initClass {
-        params = (
-            globalLfoFreq: 4,
+    *dynamicInit {
+        if (group == nil, {
+	        group = Group.new;
+            lfoGroup = Group.before(group);
+            lfoBusses = 8.collect(Bus.control(Server.default, 1));
+            noiseBus = Bus.audio(Server.default, 1);
+            DoubleDecker.addSynthdefs();
+            "Double Decker Line".postln;
+        });
+    }
 
-            waveform1: 1, pitchRatio1: 1,
-            layerLfoFreq1: 3, pw1: 0.4, sawVsPulse1: 1, noise1: 0,
-            hpfFreq1: 60, hpfRes1: 0.5, lpfFreq1: 600, lpfRes1: 0.5,
-            fEnvI1: 0, fEnvPeak1: 1, fEnvA1: 0.01, fEnvD1: 1, fEnvR1:1, fEnvHiInvert1: 1,
-            filtVsSine1: 0.2, aEnvA1: 0.01, aEnvD1: 1, aEnvS1: 0.5, aEnvR1: 1,
-            velToFilt1: 0.2, velToAmp1: 0.8, presToFilt1: 0.5, presToAmp1: 0.5,
-            layerLfoToPw1: 0.1, 
-            filtKeyfollow1: 0, ampKeyfollow1: 0,
-
-            waveform2: 2, pitchRatio2: 1,
-            layerLfoFreq2: 3, pw2: 0.4, sawVsPulse2: 0, noise2: 0,
-            hpfFreq2: 600, hpfRes2: 0.5, lpfFreq2: 1200, lpfRes2: 0.5,
-            fEnvI2: 0, fEnvPeak2: 1, fEnvA2: 0.01, fEnvD2: 1, fEnvR2:1, fEnvHiInvert2: 1,
-            filtVsSine2: 0.2, aEnvA2: 0.01, aEnvD2: 1, aEnvS2: 0.5, aEnvR2: 1,
-            velToFilt2: 0.2, velToAmp2: 0.8, presToFilt2: 0.5, presToAmp2: 0.5,
-            layerLfoToPw2: 0.1, 
-            filtKeyfollow2: 0, ampKeyfollow2: 0,
-
-            globalLfoToFreq: 0, presToGlobalLfoToFreq: 0, 
-            globalLfoToFilterFreq: 0, presToGlobalLfoToFilterFreq: 0,
-            globalLfoToAmp: 0, presToGlobalLfoToAmp: 0,
-            mix: 0.5, globalBrilliance: 0, globalResonance: 0,
-            detune: 0, drift: 0,
-            pitchEnvAmount: 0, portomento: 0,
-            amp: 0.25,      
-        );
-		voices = nil!8;
-        lfos = nil!8;
-		lastAction = 0;
-        StartUp.add {
-            (Routine.new {
-				10.yield;
-				Server.default.sync;
-	            group = Group.new;
-                lfoGroup = Group.before(group);
-                lfoBusses = 8.collect(Bus.control(Server.default, 1));
-                noiseBus = Bus.audio(Server.default, 1);
-    	        "Double Decker Line".postln;
-			}).play;
+    *addSynthdefs {
             SynthDef(\doubledeckerNoise, { |out|
                 Out.ar(out, WhiteNoise.ar);
             }).add;
@@ -120,12 +89,12 @@ DoubleDecker {
                         modLpfFreq = modLpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/16, 16);
                         modLpfFreq = modLpfFreq.clip(20, 17000);
 
-                        modHpfFreq = hpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = hpfFreq * (fEnvHiInvert*globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
                         modHpfFreq = modHpfFreq * filtFreqRatio;
-                        modHpfFreq = modHpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (fEnvHiInvert*pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
                         modHpfFreq = modHpfFreq * (fEnvHiInvert*filterEnv).linexp(-1, 1, 1/16, 16);
-                        modHpfFreq = modHpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
-                        modHpfFreq = modHpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (fEnvHiInvert*presToFilt*pressure).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (fEnvHiInvert*velToFilt*velocity).linexp(-1, 1, 1/16, 16);
                         modHpfFreq = modHpfFreq.clip(20, 17000);
 
                         // Our main oscs
@@ -208,10 +177,47 @@ DoubleDecker {
                     Out.ar(out, Pan2.ar(mixed, pan));
                 }).add;
             };
+    }
+
+    *initClass {
+        params = (
+            globalLfoFreq: 4,
+
+            waveform1: 1, pitchRatio1: 1,
+            layerLfoFreq1: 3, pw1: 0.4, sawVsPulse1: 1, noise1: 0,
+            hpfFreq1: 60, hpfRes1: 0.5, lpfFreq1: 600, lpfRes1: 0.5,
+            fEnvI1: 0, fEnvPeak1: 1, fEnvA1: 0.01, fEnvD1: 1, fEnvR1:1, fEnvHiInvert1: 1,
+            filtVsSine1: 0.2, aEnvA1: 0.01, aEnvD1: 1, aEnvS1: 0.5, aEnvR1: 1,
+            velToFilt1: 0.2, velToAmp1: 0.8, presToFilt1: 0.5, presToAmp1: 0.5,
+            layerLfoToPw1: 0.1, 
+            filtKeyfollow1: 0, ampKeyfollow1: 0,
+
+            waveform2: 2, pitchRatio2: 1,
+            layerLfoFreq2: 3, pw2: 0.4, sawVsPulse2: 0, noise2: 0,
+            hpfFreq2: 600, hpfRes2: 0.5, lpfFreq2: 1200, lpfRes2: 0.5,
+            fEnvI2: 0, fEnvPeak2: 1, fEnvA2: 0.01, fEnvD2: 1, fEnvR2:1, fEnvHiInvert2: 1,
+            filtVsSine2: 0.2, aEnvA2: 0.01, aEnvD2: 1, aEnvS2: 0.5, aEnvR2: 1,
+            velToFilt2: 0.2, velToAmp2: 0.8, presToFilt2: 0.5, presToAmp2: 0.5,
+            layerLfoToPw2: 0.1, 
+            filtKeyfollow2: 0, ampKeyfollow2: 0,
+
+            globalLfoToFreq: 0, presToGlobalLfoToFreq: 0, 
+            globalLfoToFilterFreq: 0, presToGlobalLfoToFilterFreq: 0,
+            globalLfoToAmp: 0, presToGlobalLfoToAmp: 0,
+            mix: 0.5, globalBrilliance: 0, globalResonance: 0,
+            detune: 0, drift: 0,
+            pitchEnvAmount: 0, portomento: 0,
+            amp: 0.25,      
+        );
+		voices = nil!8;
+        lfos = nil!8;
+		lastAction = 0;
+        StartUp.add {
             OSCFunc.new({ |msg, time, addr, recvPort|
                 var voice = msg[1].asInteger;
                 var hz = msg[2].asFloat;
                 var velocity = msg[3].asFloat;
+                DoubleDecker.dynamicInit();
                 Routine.new({
                     if (noiseSynth == nil, {
                         noiseSynth = Synth.new(
@@ -257,7 +263,8 @@ DoubleDecker {
             OSCFunc.new({ |msg, time, addr, recvPort|
                 var voice = msg[1].asInteger;
                 var key = msg[2].asSymbol;
-                var value = msg[3].asFloat;                
+                var value = msg[3].asFloat;
+                DoubleDecker.dynamicInit();
                 if(voices[voice] != nil, {
                     voices[voice].set(key, value);
                     // "% %\n".postf(key, value);
@@ -270,10 +277,15 @@ DoubleDecker {
             OSCFunc.new({ |msg, time, addr, recvPort|
                 var key = msg[1].asSymbol;
                 var value = msg[2].asFloat;
+                DoubleDecker.dynamicInit();
                 params[key] = value;
                 lfoGroup.set(key, value);
                 group.set(key, value);
-            }, "/doubledecker/set")
+            }, "/doubledecker/set");
+
+            OSCFunc.new({ |msg, time, addr, recvPort|
+                DoubleDecker.dynamicInit();
+            }, "/doubledecker/init");
         }
     }
 }
