@@ -18,7 +18,7 @@ local player = {
 }
 
 function player:add_params()
-    params:add_group("doubledecker_group", "doubledecker", 72)
+    params:add_group("doubledecker_group", "doubledecker", 76)
     local function control_param(id, name, key, spec)
         params:add_control(id, name, spec)
         params:set_action(id, function(val)
@@ -54,6 +54,10 @@ function player:add_params()
         controlspec.new( -0.75, 2, 'lin', 0, 0))
     taper_param("doubledecker_portomento", "portomento", "portomento",
         0, 10, 0, 2, 's')
+    control_param("doubledecker_brillance", "brilliance", "globalBrilliance",
+        controlspec.new( -1, 1, 'lin', 0, 0))
+    control_param("doubledecker_resonance", "resonance", "globalResonance",
+        controlspec.new( -1, 1, 'lin', 0, 0))
     for l = 1, 2 do
         params:add_separator("doubledecker_layer_" .. l, "layer " .. l)
         option_param("doubledecker_pitch_ratio_" .. l, "pitch ratio", "pitchRatio" .. l,
@@ -86,8 +90,10 @@ function player:add_params()
             0, 30, 1, 2, 's')
         taper_param("doubledecker_filter_release_" .. l, "filter R", 'fEnvR' .. l,
             0, 30, 1, 2, 's')
-        control_param("doubledecker_sine_" .. l, "filter vs sine", 'filtVsSine' .. l,
-            controlspec.new(0, 1, 'lin', 0, 0.1))
+        control_param("doubledecker_filt_" .. l, "filt amp", 'filtAmp' .. l,
+            controlspec.new(0, 1, 'lin', 0, 1))
+        control_param("doubledecker_sine_" .. l, "sine amp", 'sineAmp' .. l,
+            controlspec.new(0, 1, 'lin', 0, 0))
         taper_param("doubledecker_amp_attack_" .. l, "amp A", 'aEnvA' .. l,
             0, 30, 0.05, 2, 's')
         taper_param("doubledecker_amp_decay_" .. l, "amp D", 'aEnvD' .. l,
@@ -108,6 +114,8 @@ function player:add_params()
             controlspec.new( -1, 1, 'lin', 0, 0))
         control_param("doubledecker_amp_keyfollow_" .. l, "amp keyfollow", "ampKeyfollow" .. l,
             controlspec.new( -1, 1, 'lin', 0, 0))
+        taper_param("doubledecker_layer_amp_"..l, "layer amp", "layerAmp"..l, 
+            0, 1, 1, 2)
         option_param("doubledecker_invert_hpf_" .. l, "hpf response coef", "fEnvHiInvert" .. l,
             { "-1", "0", "1" }, 3, function(x) return x - 2 end)
     end

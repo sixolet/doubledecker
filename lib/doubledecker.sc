@@ -26,24 +26,26 @@ DoubleDecker {
                     out, freq=220, velocity=0.4, pressure=0.4, gate=1, pan=0,// per-note stuff
                     // layer 1
                     pitchRatio1=1,
-                    layerLfoFreq1=3, pw1=0.4, sawVsPulse1=0.5, noise1=0,
+                    layerLfoFreq1=3, pw1=0.4, noise1=0,
                     hpfFreq1=60, hpfRes1=0.5, lpfFreq1=2000, lpfRes1=0.5,
                     fEnvI1=0, fEnvPeak1=1, fEnvA1=0.01, fEnvD1=1, fEnvR1=1, fEnvHiInvert1=1,
-                    filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
+                    filtAmp1, sineAmp1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
                     velToFilt1, velToAmp1,
                     presToFilt1, presToAmp1,
                     layerLfoToPw1, 
                     filtKeyfollow1, ampKeyfollow1,
+                    layerAmp1,
                     // layer 2
                     pitchRatio2=1,
-                    layerLfoFreq2, pw2, sawVsPulse2, noise2,
+                    layerLfoFreq2, pw2, noise2,
                     hpfFreq2, hpfRes2, lpfFreq2, lpfRes2,
                     fEnvI2, fEnvPeak2, fEnvA2, fEnvD2, fEnvR2, fEnvHiInvert2,
-                    filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
+                    filtAmp2, sineAmp2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
                     velToFilt2, velToAmp2,
                     presToFilt2, presToAmp2,
                     layerLfoToPw2, 
                     filtKeyfollow2, ampKeyfollow2,
+                    layerAmp2,
                     // Both layers
                     noiseBus, globalLfoBus, 
                     globalLfoToFreq, presToGlobalLfoToFreq,
@@ -59,16 +61,17 @@ DoubleDecker {
                         freq, velocity, pressure, gate,
                         globalLfo,
                         layerLfoFreq,
-                        pw, sawVsPulse, noise, noiseUgen,
+                        pw, noise, noiseUgen,
                         hpfFreq, hpfRes, lpfFreq, lpfRes,
                         fEnvI, fEnvPeak, fEnvA, fEnvD, fEnvR, fEnvHiInvert,
-                        filtVsSine, aEnvA, aEnvD, aEnvS, aEnvR,
+                        filtAmp, sineAmp, aEnvA, aEnvD, aEnvS, aEnvR,
                         velToFilt, velToAmp,
                         presToFilt, presToAmp,
                         layerLfoToPw, 
                         globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
                         globalLfoToAmp, presToGlobalLfoToAmp,
-                        filtKeyfollow, ampKeyfollow |
+                        filtKeyfollow, ampKeyfollow,
+                        layerAmp |
                         var sound;
                         var layerLfo;
                         var filterEnv, ampEnv;
@@ -116,7 +119,7 @@ DoubleDecker {
                         sound = RLPF.ar(sound, modLpfFreq, lpfRes.linexp(0, 1, 1.2, 0.05));
 
                         // Mix with sine.
-                        sound = LinSelectX.ar(filtVsSine, [sound, SinOsc.ar(freq)]);
+                        sound = (filtAmp * sound) + (sineAmp * SinOsc.ar(freq));
 
                         // Velocity to amp
                         ampEnv = LinSelectX.kr(velToAmp, [ampEnv, velocity*ampEnv]);
@@ -126,7 +129,7 @@ DoubleDecker {
                         ampEnv = LinSelectX.kr(globalLfoToAmp, [ampEnv, globalLfo.range(0, 1)*ampEnv]);
 
                         // Amp envelope.
-                        sound = ampEnv*ampRatio*sound;              
+                        sound = layerAmp*ampEnv*ampRatio*sound;              
                         sound;
                     };
                     var globalLfo, modFreq, noiseUgen, layer1, layer2, mixed, detuneRatio, driftAddition;
@@ -145,32 +148,34 @@ DoubleDecker {
                         (detuneRatio*pitchRatio1*modFreq)+driftAddition, velocity, pressure, gate,
                         globalLfo,
                         layerLfoFreq1,
-                        pw1, sawVsPulse1, noise1, noiseUgen,
+                        pw1, noise1, noiseUgen,
                         hpfFreq1, hpfRes1, lpfFreq1, lpfRes1,
                         fEnvI1, fEnvPeak1, fEnvA1, fEnvD1, fEnvR1, fEnvHiInvert1,
-                        filtVsSine1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
+                        filtAmp1, sineAmp1, aEnvA1, aEnvD1, aEnvS1, aEnvR1,
                         velToFilt1, velToAmp1,
                         presToFilt1, presToAmp1,
                         layerLfoToPw1, 
                         globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
                         globalLfoToAmp, presToGlobalLfoToAmp,
-                        filtKeyfollow1, ampKeyfollow1);
+                        filtKeyfollow1, ampKeyfollow1,
+                        layerAmp1);
                     layer2 = layer.value(
                         tup[1].asSymbol,
                         keyRatio,
                         (detuneRatio.reciprocal*pitchRatio2*modFreq)+driftAddition, velocity, pressure, gate,
                         globalLfo,
                         layerLfoFreq2,
-                        pw2, sawVsPulse2, noise2, noiseUgen,
+                        pw2, noise2, noiseUgen,
                         hpfFreq2, hpfRes2, lpfFreq2, lpfRes2,
                         fEnvI2, fEnvPeak2, fEnvA2, fEnvD2, fEnvR2, fEnvHiInvert2,
-                        filtVsSine2, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
+                        filtAmp1, sineAmp1, aEnvA2, aEnvD2, aEnvS2, aEnvR2,
                         velToFilt2, velToAmp2,
                         presToFilt2, presToAmp2,
                         layerLfoToPw2, 
                         globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
                         globalLfoToAmp, presToGlobalLfoToAmp,
-                        filtKeyfollow2, ampKeyfollow2);
+                        filtKeyfollow2, ampKeyfollow2,
+                        layerAmp2);
                     mixed = LinSelectX.ar(mix, [layer1, layer2]);
                     DetectSilence.ar(mixed+Impulse.ar(0), doneAction: Done.freeSelf);
                     mixed = amp*mixed;
@@ -184,22 +189,24 @@ DoubleDecker {
             globalLfoFreq: 4, presToGlobalLfoFreq: 0,
 
             waveform1: 1, pitchRatio1: 1,
-            layerLfoFreq1: 3, pw1: 0.4, sawVsPulse1: 1, noise1: 0,
+            layerLfoFreq1: 3, pw1: 0.4, noise1: 0,
             hpfFreq1: 60, hpfRes1: 0.5, lpfFreq1: 600, lpfRes1: 0.5,
             fEnvI1: 0, fEnvPeak1: 1, fEnvA1: 0.01, fEnvD1: 1, fEnvR1:1, fEnvHiInvert1: 1,
-            filtVsSine1: 0.2, aEnvA1: 0.01, aEnvD1: 1, aEnvS1: 0.5, aEnvR1: 1,
+            filtAmp1: 1, sineAmp1: 0, aEnvA1: 0.01, aEnvD1: 1, aEnvS1: 0.5, aEnvR1: 1,
             velToFilt1: 0.2, velToAmp1: 0.8, presToFilt1: 0.5, presToAmp1: 0.5,
             layerLfoToPw1: 0.1, 
             filtKeyfollow1: 0, ampKeyfollow1: 0,
+            layerAmp1: 1,
 
             waveform2: 2, pitchRatio2: 1,
-            layerLfoFreq2: 3, pw2: 0.4, sawVsPulse2: 0, noise2: 0,
+            layerLfoFreq2: 3, pw2: 0.4, noise2: 0,
             hpfFreq2: 600, hpfRes2: 0.5, lpfFreq2: 1200, lpfRes2: 0.5,
             fEnvI2: 0, fEnvPeak2: 1, fEnvA2: 0.01, fEnvD2: 1, fEnvR2:1, fEnvHiInvert2: 1,
-            filtVsSine2: 0.2, aEnvA2: 0.01, aEnvD2: 1, aEnvS2: 0.5, aEnvR2: 1,
+            filtAmp2: 1, sineAmp2: 0, aEnvA2: 0.01, aEnvD2: 1, aEnvS2: 0.5, aEnvR2: 1,
             velToFilt2: 0.2, velToAmp2: 0.8, presToFilt2: 0.5, presToAmp2: 0.5,
             layerLfoToPw2: 0.1, 
             filtKeyfollow2: 0, ampKeyfollow2: 0,
+            layerAmp2: 1,
 
             globalLfoToFreq: 0, presToGlobalLfoToFreq: 0, 
             globalLfoToFilterFreq: 0, presToGlobalLfoToFilterFreq: 0,
