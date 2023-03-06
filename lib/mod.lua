@@ -7,7 +7,9 @@ if note_players == nil then
 end
 local VOICE_CARDS = 6
 
-local WAVEFORMS = { "none", 'saw', "pulse" }
+local WAVEFORMS = { "none", 'saw', "pulse", "both (lf)"}
+
+local LFO_SHAPES = {"sine", "saw", "ramp", "square", "rand", "smooth"}
 
 local PITCH_RATIOS = { "1/4", "1/3", "1/2", "2/3", "1", "3/2", "2", "3", "4" }
 local PITCH_RATIO_VALUE = { 1 / 4, 1 / 3, 1 / 2, 2 / 3, 1, 3 / 2, 2, 3, 4 }
@@ -18,7 +20,7 @@ local player = {
 }
 
 function player:add_params()
-    params:add_group("doubledecker_group", "doubledecker", 76)
+    params:add_group("doubledecker_group", "doubledecker", 83)
     local function control_param(id, name, key, spec)
         params:add_control(id, name, spec)
         params:set_action(id, function(val)
@@ -40,6 +42,34 @@ function player:add_params()
             osc.send({ "localhost", 57120 }, "/doubledecker/set", { key, f(val) })
         end)
     end
+    local function max_param(id, name, targets, min, max, step, default)
+        params:add_control(id, name, controlspec.new(min, max, 'lin', step, default))
+        -- params:set_action(id, function(v)
+        --     for _, t in ipairs(targets) do
+        --     local p = params:lookup_param(t)
+        --     if p.t == 3 then -- tControl
+        --         p.spec.maxval = v
+        --     else
+        --         p.max = v
+        --     end
+        --     p:bang()
+        -- end
+        -- end)
+    end
+    local function min_param(id, name, targets, min, max, step, default)
+        params:add_control(id, name, controlspec.new(min, max, 'lin', step, default))
+        -- params:set_action(id, function(v)
+        --     for _, t in ipairs(targets) do
+        --     local p = params:lookup_param(t)
+        --     if p.t == 3 then -- tControl
+        --         p.spec.minval = v
+        --     else
+        --         p.min = v
+        --     end
+        --     p:bang()
+        -- end
+        -- end)
+    end
     control_param("doubledecker_mix", "mix", "mix",
         controlspec.new(0, 1, 'lin', 0, 0.5))
     taper_param("doubledecker_amp", "amp", "amp",
@@ -47,14 +77,14 @@ function player:add_params()
     control_param("doubledecker_pan", "pan", "pan",
         controlspec.new( -1, 1, 'lin', 0, 0))
     control_param("doubledecker_detune", "detune", "detune",
-        controlspec.new(0, 1, 'lin', 0, 0))
+        controlspec.new(-1, 1, 'lin', 0, 0))
     control_param("doubledecker_drift", "drift", "drift",
         controlspec.new(0, 1, 'lin', 0, 0))
     control_param("doubledecker_pitch_env", "pitch env amount", "pitchEnvAmount",
         controlspec.new( -0.75, 2, 'lin', 0, 0))
     taper_param("doubledecker_portomento", "portomento", "portomento",
         0, 10, 0, 2, 's')
-    control_param("doubledecker_brillance", "brilliance", "globalBrilliance",
+    control_param("doubledecker_brilliance", "brilliance", "globalBrilliance",
         controlspec.new( -1, 1, 'lin', 0, 0))
     control_param("doubledecker_resonance", "resonance", "globalResonance",
         controlspec.new( -1, 1, 'lin', 0, 0))
@@ -63,7 +93,7 @@ function player:add_params()
         option_param("doubledecker_pitch_ratio_" .. l, "pitch ratio", "pitchRatio" .. l,
             PITCH_RATIOS, 5, function(v) return PITCH_RATIO_VALUE[v] end)
         taper_param("doubledecker_layer_lfo_freq_" .. l, "pwm freq", "layerLfoFreq" .. l,
-            0.05, 20, 4, 2, "Hz")
+            0.1, 100, 4, 2, "Hz")
         control_param("doubledecker_pwm_" .. l, "pwm", "layerLfoToPw" .. l,
             controlspec.new(0, 1, 'lin', 0, 0.1))
         control_param("doubledecker_pw_" .. l, "pulse width", "pw" .. l,
@@ -82,7 +112,7 @@ function player:add_params()
             controlspec.new(0, 1, 'lin', 0, 0.2))
         control_param("doubledecker_filter_init_" .. l, "filter I lvl", 'fEnvI' .. l,
             controlspec.new( -1, 1, 'lin', 0, 0))
-        control_param("doubledecker_filter_attack_level" .. l, "filter A lvl", 'fEnvPeak' .. l,
+        control_param("doubledecker_filter_attack_level_" .. l, "filter A lvl", 'fEnvPeak' .. l,
             controlspec.new( -1, 1, 'lin', 0, 0.4))
         taper_param("doubledecker_filter_attack_" .. l, "filter A", 'fEnvA' .. l,
             0, 30, 0, 2, 's')
@@ -110,23 +140,29 @@ function player:add_params()
             controlspec.new(0, 1, 'lin', 0, 0.5))
         control_param("doubledecker_pressure_to_amp_" .. l, "pressure->amp", "presToAmp" .. l,
             controlspec.new(0, 1, 'lin', 0, 0.5))
-        control_param("doubledecker_filter_keyfollow_" .. l, "filter keyfollow", "filtKeyfollow" .. l,
+        control_param("doubledecker_filter_keyfollow_lo_" .. l, "filter keyfollow lo", "filtKeyfollowLo" .. l,
             controlspec.new( -1, 1, 'lin', 0, 0))
-        control_param("doubledecker_amp_keyfollow_" .. l, "amp keyfollow", "ampKeyfollow" .. l,
+        control_param("doubledecker_filter_keyfollow_hi_" .. l, "filter keyfollow hi", "filtKeyfollowHi" .. l,
+            controlspec.new( -1, 1, 'lin', 0, 0))            
+        control_param("doubledecker_amp_keyfollow_lo_" .. l, "amp keyfollow lo", "ampKeyfollowLo" .. l,
             controlspec.new( -1, 1, 'lin', 0, 0))
+        control_param("doubledecker_amp_keyfollow_hi_" .. l, "amp keyfollow hi", "ampKeyfollowHi" .. l,
+            controlspec.new( -1, 1, 'lin', 0, 0))            
         taper_param("doubledecker_layer_amp_"..l, "layer amp", "layerAmp"..l, 
             0, 1, 1, 2)
         option_param("doubledecker_invert_hpf_" .. l, "hpf response coef", "fEnvHiInvert" .. l,
             { "-1", "0", "1" }, 3, function(x) return x - 2 end)
     end
     params:add_separator("doubledecker_lfo", "lfo")
+    option_param("doubledecker_lfo_shape", "shape", "globalLfoShape", 
+        LFO_SHAPES, 1, function(v) return v - 1 end)
     taper_param("doubledecker_lfo_rate", "lfo freq", "globalLfoFreq",
         1 / 30, 20, 4, 2, 'Hz')
     taper_param("doubledecker_lfo_to_freq", "vibrato", "globalLfoToFreq",
         0, 1, 0, 2)
     taper_param("doubledecker_lfo_to_filter", "filter lfo mod", "globalLfoToFilterFreq",
         0, 1, 0, 2)
-    taper_param("doubledecker_lfo_to_amp", "amp lfo mod", "globalLfoToAmp",
+    taper_param("doubledecker_lfo_to_amp", "tremolo", "globalLfoToAmp",
         0, 1, 0, 2)
     taper_param("doubledecker_lfo_pres_to_freq", "press->lfo freq", "presToGlobalLfoFreq",
         0, 1, 0, 2)
@@ -134,8 +170,32 @@ function player:add_params()
         0, 1, 0, 2)
     taper_param("doubledecker_lfo_pres_to_filt", "press->filt lfo", "presToGlobalLfoToFilterFreq",
         0, 1, 0, 2)
-    taper_param("doubledecker_lfo_pres_to_amp", "press->amp lfo", "presToGlobalLfoToAmp",
+    taper_param("doubledecker_lfo_pres_to_amp", "press->tremolo", "presToGlobalLfoToAmp",
         0, 1, 0, 2)
+    params:add_separator("doubledecker_deep", "deep patch options")
+    min_param("doubledecker_layer_lfo_min", "pwm lfo min", {"doubledecker_layer_lfo_freq_1", "doubledecker_layer_lfo_freq_2"}, 
+        0.1, 5, 0.1, 0.7)
+    max_param("doubledecker_layer_lfo_max", "pwm lfo max",  {"doubledecker_layer_lfo_freq_1", "doubledecker_layer_lfo_freq_2"}, 
+        10, 100, 1, 70)
+    min_param("doubledecker_global_lfo_min", "global lfo min", {"doubledecker_lfo_rate"},
+        0.1, 5, 0.1, 0.7)
+    max_param("doubledecker_global_lfo_max", "global lfo min", {"doubledecker_lfo_rate"},
+        10, 45, 1, 25)
+    max_param("doubledecker_attack_max", "attack max", 
+        {"doubledecker_amp_attack_1", "doubledecker_filter_attack_1", "doubledecker_amp_attack_2", "doubledecker_filter_attack_2"},
+        1, 100, 1, 1)
+    max_param("doubledecker_release_max", "release_max",
+        {
+            "doubledecker_amp_release_1", 
+            "doubledecker_amp_decay_1", 
+            "doubledecker_filter_release_1", 
+            "doubledecker_filter_decay_1",
+            "doubledecker_amp_release_2", 
+            "doubledecker_amp_decay_2", 
+            "doubledecker_filter_release_2", 
+            "doubledecker_filter_decay_2",            
+        },
+        15, 150, 1, 15)
     params:hide("doubledecker_group")
 end
 

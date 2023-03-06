@@ -16,11 +16,31 @@ DoubleDecker {
             SynthDef(\doubledeckerNoise, { |out|
                 Out.ar(out, WhiteNoise.ar);
             }).add;
-            SynthDef(\doubledeckerLfo, { 
+            SynthDef(\doubledeckerLfoSine, { 
                 |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
                 Out.kr(out, SinOsc.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
             }).add;
-            (["X", "S", "P"]!2).allTuples.do { |tup|
+            SynthDef(\doubledeckerLfoSaw, { 
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
+                Out.kr(out, -1*LFSaw.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+            }).add; 
+            SynthDef(\doubledeckerLfoRamp, { 
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
+                Out.kr(out, LFSaw.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+            }).add;
+            SynthDef(\doubledeckerLfoSquare, { 
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
+                Out.kr(out, LFPulse.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+            }).add;
+            SynthDef(\doubledeckerLfoRand, { 
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
+                Out.kr(out, -1*LFNoise0.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+            }).add;
+            SynthDef(\doubledeckerLfoSmooth, { 
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
+                Out.kr(out, -1*LFNoise2.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+            }).add;                         
+            (["X", "S", "P", "B"]!2).allTuples.do { |tup|
                 SynthDef(("doubledecker"++tup[0]++tup[1]).asSymbol, {
                     | 
                     out, freq=220, velocity=0.4, pressure=0.4, gate=1, pan=0,// per-note stuff
@@ -33,7 +53,7 @@ DoubleDecker {
                     velToFilt1, velToAmp1,
                     presToFilt1, presToAmp1,
                     layerLfoToPw1, 
-                    filtKeyfollow1, ampKeyfollow1,
+                    filtKeyfollowLo1, filtKeyfollowHi1, ampKeyfollowLo1, ampKeyfollowHi1,
                     layerAmp1,
                     // layer 2
                     pitchRatio2=1,
@@ -44,7 +64,7 @@ DoubleDecker {
                     velToFilt2, velToAmp2,
                     presToFilt2, presToAmp2,
                     layerLfoToPw2, 
-                    filtKeyfollow2, ampKeyfollow2,
+                    filtKeyfollowLo2, filtKeyfollowHi2, ampKeyfollowLo2, ampKeyfollowHi2,
                     layerAmp2,
                     // Both layers
                     noiseBus, globalLfoBus, 
@@ -70,14 +90,14 @@ DoubleDecker {
                         layerLfoToPw, 
                         globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
                         globalLfoToAmp, presToGlobalLfoToAmp,
-                        filtKeyfollow, ampKeyfollow,
+                        filtKeyfollowLo, filtKeyfollowHi, ampKeyfollowLo, ampKeyfollowHi,
                         layerAmp |
                         var sound;
                         var layerLfo;
                         var filterEnv, ampEnv;
                         var modLpfFreq, modHpfFreq, modLayerLfoFreq, modAmp, modPw;
-                        var filtFreqRatio = keyRatio**filtKeyfollow;
-                        var ampRatio = (keyRatio**ampKeyfollow).clip(0, 4);
+                        var filtFreqRatio = keyRatio**((keyRatio > 1).if(filtKeyfollowHi, -1*filtKeyfollowLo));
+                        var ampRatio = (keyRatio**((keyRatio > 1).if(ampKeyfollowHi, -1*ampKeyfollowLo))).clip(0, 4);
                         filterEnv = EnvGen.kr(
                             Env.new(levels: [fEnvI, fEnvPeak, 0, fEnvI], times: [fEnvA, fEnvD, fEnvR], releaseNode: 2), 
                             gate,
@@ -108,6 +128,11 @@ DoubleDecker {
                                     layerLfo = SinOsc.kr(layerLfoFreq);
                                     modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
                                     Pulse.ar(freq, width: modPw);
+                                },
+                            \B, { // When both waves are required, efficiency demands we use the LF versions.
+                                    layerLfo = SinOsc.kr(layerLfoFreq);
+                                    modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
+                                    LFPulse.ar(freq, width: modPw) + LFSaw.ar(freq);
                                 },
                             {0});
                         
@@ -157,7 +182,7 @@ DoubleDecker {
                         layerLfoToPw1, 
                         globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
                         globalLfoToAmp, presToGlobalLfoToAmp,
-                        filtKeyfollow1, ampKeyfollow1,
+                        filtKeyfollowLo1, filtKeyfollowHi1, ampKeyfollowLo1, ampKeyfollowHi1,
                         layerAmp1);
                     layer2 = layer.value(
                         tup[1].asSymbol,
@@ -174,7 +199,7 @@ DoubleDecker {
                         layerLfoToPw2, 
                         globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
                         globalLfoToAmp, presToGlobalLfoToAmp,
-                        filtKeyfollow2, ampKeyfollow2,
+                        filtKeyfollowLo2, filtKeyfollowHi2, ampKeyfollowLo2, ampKeyfollowHi2,
                         layerAmp2);
                     mixed = LinSelectX.ar(mix, [layer1, layer2]);
                     DetectSilence.ar(mixed+Impulse.ar(0), doneAction: Done.freeSelf);
@@ -186,7 +211,8 @@ DoubleDecker {
 
     *initClass {
         params = (
-            globalLfoFreq: 4, presToGlobalLfoFreq: 0,
+            globalLfoFreq: 4, presToGlobalLfoFreq: 0, 
+            globalLfoShape: 0, globalLfoSync: 1, globalLfoIndividual: 1,
 
             waveform1: 1, pitchRatio1: 1,
             layerLfoFreq1: 3, pw1: 0.4, noise1: 0,
@@ -195,7 +221,7 @@ DoubleDecker {
             filtAmp1: 1, sineAmp1: 0, aEnvA1: 0.01, aEnvD1: 1, aEnvS1: 0.5, aEnvR1: 1,
             velToFilt1: 0.2, velToAmp1: 0.8, presToFilt1: 0.5, presToAmp1: 0.5,
             layerLfoToPw1: 0.1, 
-            filtKeyfollow1: 0, ampKeyfollow1: 0,
+            filtKeyfollowLo1: 0, filtKeyfollowHi1: 0, ampKeyfollowLo1: 0, ampKeyfollowHi1: 0,
             layerAmp1: 1,
 
             waveform2: 2, pitchRatio2: 1,
@@ -205,7 +231,7 @@ DoubleDecker {
             filtAmp2: 1, sineAmp2: 0, aEnvA2: 0.01, aEnvD2: 1, aEnvS2: 0.5, aEnvR2: 1,
             velToFilt2: 0.2, velToAmp2: 0.8, presToFilt2: 0.5, presToAmp2: 0.5,
             layerLfoToPw2: 0.1, 
-            filtKeyfollow2: 0, ampKeyfollow2: 0,
+            filtKeyfollowLo2: 0, filtKeyfollowHi2: 0, ampKeyfollowLo2: 0, ampKeyfollowHi2: 0,
             layerAmp2: 1,
 
             globalLfoToFreq: 0, presToGlobalLfoToFreq: 0, 
@@ -220,12 +246,20 @@ DoubleDecker {
         lfos = nil!8;
 		lastAction = 0;
         StartUp.add {
+            var lfoOptions = [
+                \doubledeckerLfoSine, 
+                \doubledeckerLfoSaw, 
+                \doubledeckerLfoRamp, 
+                \doubledeckerLfoSquare, 
+                \doubledeckerLfoRand, 
+                \doubledeckerLfoSmooth];
             OSCFunc.new({ |msg, time, addr, recvPort|
                 var voice = msg[1].asInteger;
                 var hz = msg[2].asFloat;
                 var velocity = msg[3].asFloat;
                 DoubleDecker.dynamicInit();
                 Routine.new({
+                    var lfoLoc = (params.globalLfoIndividual > 0).if(voice, 1);
                     if (noiseSynth == nil, {
                         noiseSynth = Synth.new(
                             \doubledeckerNoise, 
@@ -233,19 +267,23 @@ DoubleDecker {
                             target:lfoGroup);
                         Server.default.sync;
                     });
-                    if(lfos[voice] == nil, {
-                        lfos[voice] = Synth.new(
-                            \doubledeckerLfo, 
+                    if(lfos[lfoLoc] == nil, {
+                        lfos[lfoLoc] = Synth.new(
+                            lfoOptions[params.globalLfoShape.asInteger], 
                             [
                                 \out, lfoBusses[voice], 
                                 \globalLfoFreq, params.globalLfoFreq,
                                 \pressure, 0
                             ],
                             target:lfoGroup);
+                        lfos[lfoLoc].onFree({
+                            lfos[lfoLoc] = nil;
+                        });
                     });
                     if(voices[voice] == nil, {
-                        var l1 = [\X, \S, \P][params.waveform1];
-                        var l2 = [\X, \S, \P][params.waveform2];
+                        var l1 = [\X, \S, \P, \B][params.waveform1];
+                        var l2 = [\X, \S, \P, \B][params.waveform2];
+                        "waveform 1 % l1 %\n".postf(params.waveform1, l1);
                         voices[voice] = Synth.new(
                             ("doubledecker" ++ l1 ++ l2), 
                             [
@@ -256,12 +294,23 @@ DoubleDecker {
                             ]++params.asPairs,
                             target: group);
                         voices[voice].onFree({
+                            var allOff;
                             voices[voice] = nil;
-                            if(voices.every({|x, i| x == nil}) && (noiseSynth != nil), {
+                            allOff = voices.every({|x, i| x == nil});                            
+                            if(allOff && (noiseSynth != nil), {
                                 noiseSynth.free;
                                 noiseSynth = nil;
                             });
-                     });
+                            if(params.globalLfoSync > 0, {
+                                if(params.globalLfoIndividual > 0, {
+                                    lfos[voice].free;
+                                }, {
+                                    if(allOff, {
+                                        lfos.do(_.free);
+                                    });
+                                });
+                            });
+                        });
                     }, {
                         voices[voice].set(\freq, hz, \velocity, velocity, \gate, 1)
                     });
@@ -293,6 +342,11 @@ DoubleDecker {
             OSCFunc.new({ |msg, time, addr, recvPort|
                 DoubleDecker.dynamicInit();
             }, "/doubledecker/init");
+
+            OSCFunc.new({ |msg, time, addr, recvPort|
+                voices.do(_.free);
+                lfos.do(_.free);
+            }, "/doubledecker/all_off")
         }
     }
 }
