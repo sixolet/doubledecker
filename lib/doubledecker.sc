@@ -103,21 +103,23 @@ DoubleDecker {
                             gate,
                             doneAction: Done.none);
                         ampEnv = EnvGen.kr(Env.adsr(aEnvA, aEnvD, aEnvS, aEnvR), gate, doneAction: Done.none);
-                        // Full range of filter modulation is about +/- four octaves; less gentle.
-                        modLpfFreq = lpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        // Full range of filter modulation is about +/- two octaves; less gentle.
+                        modLpfFreq = lpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
                         modLpfFreq = modLpfFreq * filtFreqRatio;
-                        modLpfFreq = modLpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
                         modLpfFreq = modLpfFreq * filterEnv.linexp(-1, 1, 1/16, 16);
-                        modLpfFreq = modLpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/16, 16);
-                        modLpfFreq = modLpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/16, 16);
+                        modLpfFreq = modLpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/2, 2);
+                        modLpfFreq = modLpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/2, 2);
+                        modLpfFreq = modLpfFreq * globalBrilliance.linexp(-1, 1, 5/8, 8/5);
                         modLpfFreq = modLpfFreq.clip(20, 17000);
 
-                        modHpfFreq = hpfFreq * (fEnvHiInvert*globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = hpfFreq * (fEnvHiInvert*globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
                         modHpfFreq = modHpfFreq * filtFreqRatio;
-                        modHpfFreq = modHpfFreq * (fEnvHiInvert*pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/16, 16);
-                        modHpfFreq = modHpfFreq * (fEnvHiInvert*filterEnv).linexp(-1, 1, 1/16, 16);
-                        modHpfFreq = modHpfFreq * (fEnvHiInvert*presToFilt*pressure).linexp(-1, 1, 1/16, 16);
-                        modHpfFreq = modHpfFreq * (fEnvHiInvert*velToFilt*velocity).linexp(-1, 1, 1/16, 16);
+                        modHpfFreq = modHpfFreq * (fEnvHiInvert*pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
+                        modHpfFreq = modHpfFreq * (fEnvHiInvert*filterEnv).linexp(-1, 1, 1/4, 4);
+                        modHpfFreq = modHpfFreq * (presToFilt*pressure).linexp(-1, 1, 2, 1/2);
+                        modHpfFreq = modHpfFreq * (velToFilt*velocity).linexp(-1, 1, 2, 1/2);
+                        modHpfFreq = modHpfFreq * globalBrilliance.linexp(-1, 1, 8/5, 5/8);
                         modHpfFreq = modHpfFreq.clip(20, 17000);
 
                         // Our main oscs

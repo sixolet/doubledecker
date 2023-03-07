@@ -103,11 +103,11 @@ function player:add_params()
         taper_param("doubledecker_noise_" .. l, "noise", "noise" .. l,
             0, 1, 0, 2)
         taper_param("doubledecker_hp_freq_" .. l, "hpf", "hpfFreq" .. l,
-            20, 20000, 60, 2, 'Hz')
+            20, 10000, 60, 2, 'Hz')
         control_param("doubledecker_hp_res_" .. l, "hp res", "hpfRes" .. l,
             controlspec.new(0, 1, 'lin', 0, 0.2))
         taper_param("doubledecker_lp_freq_" .. l, "lpf", "lpfFreq" .. l,
-            40, 20000, 600, 2, 'Hz')
+            100, 20000, 600, 2, 'Hz')
         control_param("doubledecker_lp_res_" .. l, "lp res", "lpfRes" .. l,
             controlspec.new(0, 1, 'lin', 0, 0.2))
         control_param("doubledecker_filter_init_" .. l, "filter I lvl", 'fEnvI' .. l,

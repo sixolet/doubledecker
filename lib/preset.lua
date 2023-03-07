@@ -61,15 +61,32 @@ local function resolve_minmax(min, max)
     return min2, max2
 end
 
+local function filter_xform(offset)
+    return {
+        fromlin = function(linMin, linMax, hzMin, hzMax, linX)
+            return offset + util.linexp(linMin, linMax, hzMin, hzMax, linX)
+        end,
+        tolin = function(hzMin, hzMax, linMin, linMax, hz)
+            return util.clamp(
+                util.explin(hzMin, hzMax, linMin, linMax, util.clamp(hz - offset, hzMin, hzMax)),
+                linMin,
+                linMax)
+        end,
+    }
+end
+
 local function forParamTransformed(unprefix_param, min, max, scaling, inverted)
     local param_name = "doubledecker_" .. unprefix_param
     local param = params:lookup_param(param_name)
     local ret = {}
-    local xform = util.linlin
-    if scaling == 'exp' then
-        xform = util.explin
-    end
+
     function ret:getByte()
+        local xform = util.linlin
+        if type(scaling) == 'table' then
+            xform = scaling.tolin
+        elseif scaling == 'exp' then
+            xform = util.explin
+        end
         local val = param:get()
         local min2, max2 = resolve_minmax(min, max)
         if inverted then
@@ -81,7 +98,9 @@ local function forParamTransformed(unprefix_param, min, max, scaling, inverted)
 
     function ret:setByte(b)
         local xform = util.linlin
-        if scaling == 'exp' then
+        if type(scaling) == 'table' then
+            xform = scaling.fromlin
+        elseif scaling == 'exp' then
             xform = util.linexp
         end
         local min2, max2 = resolve_minmax(min, max)
@@ -129,6 +148,7 @@ local function forFeet(unprefix_param)
         local dd = util.clamp(math.floor(b / 42.5) + 1, 1, 6)
         param:set(ddToInternalMap[dd])
     end
+
     return ret
 end
 
@@ -147,6 +167,7 @@ local function forLfoShape(unprefix_param)
         local dd = util.clamp(math.floor(b / 42.5) + 1, 1, 6)
         param:set(7 - dd)
     end
+
     return ret
 end
 
@@ -206,11 +227,11 @@ end
 local byte_desciptors = {
     { index = 0,  name = "SLIDER_VCO_SPEED_A",      converter = forParamTransformed("layer_lfo_freq_1", "layer_lfo_min", "layer_lfo_max", 'exp') },
     { index = 1,  name = "SLIDER_VCO_PWM_A",        converter = forParamRaw("pwm_1") },
-    { index = 2,  name = "SLIDER_VCO_PW_A",         converter = forParamRaw("pw_1") },
+    { index = 2,  name = "SLIDER_VCO_PW_A",         converter = forParamRaw("pw_1", true) },
     { index = 3,  name = "SLIDER_VCO_NOISE_A",      converter = forParamRaw("noise_1") },
-    { index = 4,  name = "SLIDER_VCF_HPF_A",        converter = forParamRaw("hp_freq_1") },
+    { index = 4,  name = "SLIDER_VCF_HPF_A",        converter = forParamTransformed("hp_freq_1", 1.5, 6000, filter_xform(72)) },
     { index = 5,  name = "SLIDER_VCF_RESH_A",       converter = forParamRaw("hp_res_1") },
-    { index = 6,  name = "SLIDER_VCF_LPF_A",        converter = forParamRaw("lp_freq_1") },
+    { index = 6,  name = "SLIDER_VCF_LPF_A",        converter = forParamTransformed("lp_freq_1", 3, 10000, filter_xform(30)) },
     { index = 7,  name = "SLIDER_VCF_RESL_A",       converter = forParamRaw("lp_res_1") },
     { index = 8,  name = "SLIDER_VCF_IL_A",         converter = forParamTransformed("filter_init_1", -1, 0, 'lin', true) },
     { index = 9,  name = "SLIDER_VCF_AL_A",         converter = forParamTransformed("filter_attack_level_1", 0, 1, 'lin') },
@@ -236,11 +257,11 @@ local byte_desciptors = {
     { index = 29, name = "SLIDER_VCA_ATTACK_B",     converter = forParamTransformed("amp_attack_2", 0.005, "attack_max", "exp") },
     { index = 30, name = "SLIDER_VCO_SPEED_B",      converter = forParamTransformed("layer_lfo_freq_2", "layer_lfo_min", "layer_lfo_max", "exp") },
     { index = 31, name = "SLIDER_VCO_PWM_B",        converter = forParamRaw("pwm_2") },
-    { index = 32, name = "SLIDER_VCO_PW_B",         converter = forParamRaw("pw_2") },
+    { index = 32, name = "SLIDER_VCO_PW_B",         converter = forParamRaw("pw_2", true) },
     { index = 33, name = "SLIDER_VCO_NOISE_B",      converter = forParamRaw("noise_2") },
-    { index = 34, name = "SLIDER_VCF_HPF_B",        converter = forParamRaw("hp_freq_2") },
+    { index = 34, name = "SLIDER_VCF_HPF_B",        converter = forParamTransformed("hp_freq_2", 1.5, 6000, filter_xform(72)) },
     { index = 35, name = "SLIDER_VCF_RESH_B",       converter = forParamRaw("hp_res_2") },
-    { index = 36, name = "SLIDER_VCF_LPF_B",        converter = forParamRaw("lp_freq_2") },
+    { index = 36, name = "SLIDER_VCF_LPF_B",        converter = forParamTransformed("lp_freq_2", 3, 10000, filter_xform(30)) },
     { index = 37, name = "SLIDER_VCF_RESL_B",       converter = forParamRaw("lp_res_2") },
     { index = 38, name = "SLIDER_VCF_IL_B",         converter = forParamTransformed("filter_init_2", -1, 0, 'lin', true) },
     { index = 39, name = "SLIDER_VCF_AL_B",         converter = forParamTransformed("filter_attack_level_2", 0, 1, 'lin') },
@@ -298,7 +319,7 @@ local byte_desciptors = {
     { index = 91, name = "MENU_VOICE_EGRETRIG",     converter = constant(0) },
     { index = 92, name = "MENU_VOICE_NOTEPRIORITY", converter = constant(0) },
     { index = 93, name = "SWITCH_SUSTAIN",          converter = constant(1) },
-    { index = 94, name = "MENU_PRESET_VOLUME",      converter = forParamTransformed("amp", 0.25, 1, 'exp', true) },
+    { index = 94, name = "MENU_PRESET_VOLUME",      converter = forParamTransformed("amp", 0.125, 0.5, 'exp', true) },
     { index = 95, name = "MENU_TIME_LFO_DEPTH",     converter = constant(0) },
     { index = 96, name = "MENU_MW_DESTINATION",     converter = constant(0) },
     { index = 97, name = "MENU_MW_POLARITY",        converter = constant(0) },
@@ -322,12 +343,13 @@ function Preset:read_file(filename)
     local fh, err = io.open(filename, "rb")
     local contents = fh:read("*all")
     self.bank = contents
-    self.n_psets = string.len(self.bank)/98
+    self.n_psets = string.len(self.bank) / 98
 end
 
 function Preset:load_preset(n)
-    local bytes = {string.byte(self.bank, 98*n + 1, 98*(n+1))}
-    for i=98,1,-1 do
+    n = n - 1
+    local bytes = { string.byte(self.bank, 98 * n + 1, 98 * (n + 1)) }
+    for i = 98, 1, -1 do
         byte_desciptors[i].converter:setByte(bytes[i])
     end
 end
