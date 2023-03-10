@@ -1,5 +1,8 @@
 local dd = require('doubledecker/lib/mod')
 local nb = require('doubledecker/lib/nb/lib/nb')
+local bind = require('doubledecker/lib/binding')
+
+mft = require('doubledecker/lib/mft')
 
 -- most of this code is copied/adapted from nbin
 
@@ -15,6 +18,8 @@ local bookeeping = {}
 for i = 0, 16 do
     notes[i] = {}
 end
+
+local page = 1
 
 local function find_region(note, chan)
     if note and bookeeping[note] then
@@ -93,8 +98,47 @@ local function midi_target(x)
     end
 end
 
+local screen_dirty = true
+
+function redraw()
+    screen.clear()
+    for row = 1, 4 do
+        for col = 1, 4 do
+            for l = 1, 2 do
+                local layer = bind:get(page, row, col, l)
+                if layer then
+                    local x = (col - 1) * 32
+                    local y = (row - 1) * 16 + l * 7                    
+                    layer:draw(x, y)
+                end
+            end
+        end
+    end
+    screen.update()
+end
+
+local function set_page(n)
+    mft:page(n)
+    page = n
+end
+
+function enc(n, d)
+    if n == 1 then
+        set_page(util.wrap(page + d, 1, 3))
+        screen_dirty = true
+    end
+end
+
 function init()
     nb:init()
+    mft:init()
+    mft:page(1)
+    mft.turn_action = function(page, row, col, layer, val)
+        local b = bind:get(page, row, col, layer)
+        if b then 
+            b:set(val/128)
+        end
+    end
     osc.send(
         { "localhost", 57120 },
         "/doubledecker/init",
@@ -108,5 +152,22 @@ function init()
     params:set_action("midi source", midi_target)
     nb:add_player_params()
     dd:active()
+    bind:add_listener(function(page, row, col, layer, normalized)
+            screen_dirty = true
+        end)    
+    bind:add_listener(function(page, row, col, layer, normalized)
+            mft:set_position(page, row, col, layer, math.floor(127*normalized))
+        end)
     params:read()
+    clock.run(function()
+        clock.sleep(1/15)
+        params:bang()
+        while true do
+            if screen_dirty then
+                redraw()
+                screen_dirty = false
+            end
+            clock.sleep(1 / 15)
+        end
+    end)
 end

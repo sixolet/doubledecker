@@ -291,13 +291,13 @@ local byte_desciptors = {
     { index = 63, name = "SLIDER_KBRD_BRIL_HIGH",   converter = forKeyfollow("filter_keyfollow_hi", true) },
     { index = 64, name = "SLIDER_KBRD_LVL_LOW",     converter = forKeyfollow("amp_keyfollow_lo", true) },
     { index = 65, name = "SLIDER_KBRD_LVL_HIGH",    converter = forKeyfollow("amp_keyfollow_hi", true) },
-    { index = 66, name = "SLIDER_PORT_GLIS",        converter = forParamRaw("portomento", true) },
+    { index = 66, name = "SLIDER_PORT_GLIS",        converter = forParamTransformed("portomento", 0, 1, 'lin', true) },
     { index = 67, name = "unused1",                 converter = constant(254) },
     { index = 68, name = "unused2",                 converter = constant(254) },
     { index = 69, name = "unused3",                 converter = constant(254) },
     { index = 70, name = "unused4",                 converter = constant(254) },
     { index = 71, name = "unused5",                 converter = constant(254) },
-    { index = 72, name = "SWITCH_GLISSANDO",        converter = constant(254) },
+    { index = 72, name = "SWITCH_GLISSANDO",        converter = constant(254) }, -- Revisit!
     { index = 73, name = "SWITCH_SQUARE_A",         converter = forShape("shape_1", "pulse") },
     { index = 74, name = "SWITCH_SAW_A",            converter = forShape("shape_1", "saw") },
     { index = 75, name = "SWITCH_SAW_B",            converter = forShape("shape_2", "saw") },
@@ -324,6 +324,12 @@ local byte_desciptors = {
     { index = 96, name = "MENU_MW_DESTINATION",     converter = constant(0) },
     { index = 97, name = "MENU_MW_POLARITY",        converter = constant(0) },
 }
+
+local descriptors_by_name = {}
+
+for _, d in ipairs(byte_desciptors) do
+    descriptors_by_name[d.name] = d
+end
 
 local Preset = {
     bank = "",

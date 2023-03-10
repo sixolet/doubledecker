@@ -134,7 +134,7 @@ DoubleDecker {
                             \B, { // When both waves are required, efficiency demands we use the LF versions.
                                     layerLfo = SinOsc.kr(layerLfoFreq);
                                     modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
-                                    LFPulse.ar(freq, width: modPw) + LFSaw.ar(freq);
+                                    0.5*(LFPulse.ar(freq, width: modPw) + LFSaw.ar(freq));
                                 },
                             {0});
                         
