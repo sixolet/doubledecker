@@ -157,13 +157,13 @@ function Player:add_params()
         control_param("doubledecker_pressure_to_amp_" .. l, "pressure->amp", "presToAmp" .. l,
             controlspec.new(0, 1, 'lin', 0, 0.5), bind:at(l, 2, 4, 2, "pAmp"))
         control_param("doubledecker_filter_keyfollow_lo_" .. l, "filter keyfollow lo", "filtKeyfollowLo" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 1, l, "f lo"..l))
         control_param("doubledecker_filter_keyfollow_hi_" .. l, "filter keyfollow hi", "filtKeyfollowHi" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 2, l, "f hi"..l))
         control_param("doubledecker_amp_keyfollow_lo_" .. l, "amp keyfollow lo", "ampKeyfollowLo" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 3, l, "a lo"..l))
         control_param("doubledecker_amp_keyfollow_hi_" .. l, "amp keyfollow hi", "ampKeyfollowHi" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 4, l, "a hi"..l))
         taper_param("doubledecker_layer_amp_" .. l, "layer amp", "layerAmp" .. l,
             0, 1, 1, 2, nil, bind:at(l, 1, 4, 2, "layer" .. l))
         option_param("doubledecker_invert_hpf_" .. l, "hpf response coef", "fEnvHiInvert" .. l,

@@ -1,10 +1,35 @@
+-- Doubledecker
+--
+-- Copies Deckard's Dream
+-- Copies Yamaha CS-80
+--
+-- by @sixolet
+--
+-- This is a midi synth.
+-- Plug in your midi controller.
+--
+-- e1 navigates pages.
+-- k2 and k3 navigate params.
+-- e2 and e3 modify them.
+--
+-- But that is tedious.
+--
+-- If you have a
+-- Midi Fighter Twister
+-- Plug that in now.
+-- (will override its config)
+--
+-- Or use a grid.
+
 local dd = require('doubledecker/lib/mod')
 local nb = require('doubledecker/lib/nb/lib/nb')
 local bind = require('doubledecker/lib/binding')
 
+local g = grid.connect()
+
 mft = require('doubledecker/lib/mft')
 
--- most of this code is copied/adapted from nbin
+-- much of this code is copied/adapted from nbin
 
 local midi_device = {} -- container for connected midi devices
 local midi_device_names = { "none" }
@@ -123,7 +148,7 @@ local function mft_shade_page(n)
     if page == 1 or page == 2 then
         for row = 1, 4 do
             for col = 1, 4 do
-                mft:set_rgb_level(page, row, col, page == 2 and (0.5 + row/8) or (1 - row/8))
+                mft:set_rgb_level(page, row, col, page == 2 and (0.5 + row / 8) or (1 - row / 8))
             end
         end
     end
@@ -133,6 +158,7 @@ local function set_page(n)
     mft:page(n)
     mft_shade_page(n)
     page = n
+    screen_dirty = true
 end
 
 function enc(n, d)
@@ -149,11 +175,153 @@ end
 
 function key(n, z)
     if z == 1 and n == 2 then
-        row = util.wrap(row+1, 1, 4)
+        row = util.wrap(row + 1, 1, 4)
     elseif z == 1 and n == 3 then
-        col = util.wrap(col+1, 1, 4)
+        col = util.wrap(col + 1, 1, 4)
     end
     screen_dirty = true
+end
+
+function g.key(x, y, z)
+    if x == 1 and y == 8 and z == 1 then
+        if params:get("doubledecker_grid_mode") == 1 then
+            params:set("doubledecker_grid_mode", 2)
+        else
+            params:set("doubledecker_grid_mode", 1)
+        end
+        return
+    end
+    if params:get("doubledecker_grid_mode") == 1 then
+        local note = 24
+        note = note + params:get("doubledecker_dx") * x
+        note = note + params:get("doubledecker_dy") * (8 - y)
+        if z == 1 then
+            dd:note_on(note, 0.7)
+        else
+            dd:note_off(note)
+        end
+    elseif params:get("doubledecker_grid_mode") == 2 then
+        local p, r, c
+        if x <= 4 and y <= 4 then
+            p = 1
+            r = y
+            c = x
+        elseif x >= 4 and x <= 7 and y >= 5 then
+            p = 3
+            r = y - 4
+            c = x - 3
+        elseif x >= 7 and x <= 10 and y <= 4 then
+            p = 2
+            r = y
+            c = x - 6
+        end
+        if p then
+            row = r
+            col = c
+            set_page(p)
+        end
+    end
+end
+
+local bipolars = {
+    doubledecker_detune = true,
+    doubledecker_brilliance = true,
+    doubledecker_resonance = true,
+    doubledecker_filter_keyfollow_lo_1 = true,
+    doubledecker_filter_keyfollow_hi_1 = true,
+    doubledecker_amp_keyfollow_lo_1 = true,
+    doubledecker_amp_keyfollow_hi_1 = true,
+    doubledecker_filter_keyfollow_lo_2 = true,
+    doubledecker_filter_keyfollow_hi_2 = true,
+    doubledecker_amp_keyfollow_lo_2 = true,
+    doubledecker_amp_keyfollow_hi_2 = true,
+    doubledecker_filter_init_1 = true,
+    doubledecker_filter_init_2 = true,
+    doubledecker_filter_attack_level_1 = true,
+    doubledecker_filter_attack_level_2 = true,
+}
+
+local function grid_redraw()
+    g:all(0)
+    if params:get("doubledecker_grid_mode") == 1 then
+        for x = 1, 16, 1 do
+            for y = 1, 8, 1 do
+                local note = 24
+                note = note + params:get("doubledecker_dx") * x
+                note = note + params:get("doubledecker_dy") * (8 - y)
+                local hs = note % 12
+                if hs == 0 then
+                    g:led(x, y, 6)
+                elseif hs == 2 or hs == 4 or hs == 5 or hs == 7 or hs == 9 or hs == 11 then
+                    g:led(x, y, 3)
+                end
+            end
+        end
+    elseif params:get("doubledecker_grid_mode") == 2 then
+        for i, p in ipairs { 1, 3, 2 } do
+            for r = 1, 4 do
+                for c = 1, 4 do
+                    local b = bind:get(p, r, c, 1)
+                    if b then
+                        local x = (i - 1) * 3 + c
+                        local y = r
+                        if p == 3 then y = y + 4 end
+                        g:led(x, y, math.floor(14 * (b.display_value or 0) + 1))
+                        if p == page and r == row and c == col then
+                            g:led(x, y, 15)
+                        end
+                    end
+                end
+            end
+        end
+        for layer = 1, 2 do
+            local b = bind:get(page, row, col, layer)
+            if b then
+                if b.param and bipolars[b.param.id] then
+                    local full_leds = math.floor(math.abs(b.display_value - 0.5) * 8)
+                    local remainder = (math.abs(b.display_value - 0.5) * 8) % 1
+                    if b.display_value > 0.5 then
+                        for i = 1, full_leds do
+                            for j = 0, 1 do
+                                g:led(12 + 3 * (layer - 1) + j, 5 - i, 10)
+                            end
+                        end
+                        if full_leds < 4 then
+                            for j = 0, 1 do
+                                g:led(12 + 3 * (layer - 1) + j, 4 - full_leds,
+                                    math.floor(10 * remainder))
+                            end
+                        end
+                    elseif b.display_value < 0.5 then
+                        for i = 1, full_leds do
+                            for j = 0, 1 do
+                                g:led(12 + 3 * (layer - 1) + j, 4 + i, 10)
+                            end
+                        end
+                        if full_leds < 4 then
+                            for j = 0, 1 do
+                                g:led(12 + 3 * (layer - 1) + j, 5 + full_leds,
+                                    math.floor(10 * remainder))
+                            end
+                        end
+                    end
+                else
+                    local full_leds = math.floor(b.display_value * 8)
+                    for i = 1, full_leds do
+                        for j = 0, 1 do
+                            g:led(12 + 3 * (layer - 1) + j, 9 - i, 10)
+                        end
+                    end
+                    if full_leds < 8 then
+                        for j = 0, 1 do
+                            g:led(12 + 3 * (layer - 1) + j, 8 - full_leds, math.floor(10 * ((b.display_value * 8) % 1)))
+                        end
+                    end
+                end
+            end
+        end
+    end
+    g:refresh()
 end
 
 
@@ -186,6 +354,9 @@ function init()
     params:add_number("bend range", "bend range", 2, 48, 12)
     params:set_action("midi source", midi_target)
     nb:add_player_params()
+    params:add_option("doubledecker_grid_mode", "grid mode", { "keyboard", "controller" })
+    params:add_number("doubledecker_dx", "grid key dx", 1, 7, 1)
+    params:add_number("doubledecker_dy", "grid key dy", 1, 12, 5)
     dd:active()
     bind:add_listener(function(page, row, col, layer, normalized)
         screen_dirty = true
@@ -202,6 +373,7 @@ function init()
                 redraw()
                 screen_dirty = false
             end
+            grid_redraw()
             clock.sleep(1 / 15)
         end
     end)

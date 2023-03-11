@@ -162,8 +162,8 @@ DoubleDecker {
                         sound = sound + (noise*noiseUgen);
 
                         // Filter stage
-                        sound = RHPF.ar(sound, modHpfFreq, hpfRes.linexp(0, 1, 1.2, 0.05));
-                        sound = RLPF.ar(sound, modLpfFreq, lpfRes.linexp(0, 1, 1.2, 0.05));
+                        sound = RHPF.ar(sound, modHpfFreq, (hpfRes + (0.5*globalResonance)).linexp(0, 1, 1.2, 0.05));
+                        sound = RLPF.ar(sound, modLpfFreq, (lpfRes + (0.5*globalResonance)).linexp(0, 1, 1.2, 0.05));
 
                         // Mix with sine.
                         sound = (filtAmp * sound) + (sineAmp * FSinOsc.ar(freq));
