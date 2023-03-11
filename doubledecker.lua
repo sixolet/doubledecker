@@ -20,6 +20,8 @@ for i = 0, 16 do
 end
 
 local page = 1
+local row = 1
+local col = 1
 
 local function find_region(note, chan)
     if note and bookeeping[note] then
@@ -102,14 +104,14 @@ local screen_dirty = true
 
 function redraw()
     screen.clear()
-    for row = 1, 4 do
-        for col = 1, 4 do
+    for r = 1, 4 do
+        for c = 1, 4 do
             for l = 1, 2 do
-                local layer = bind:get(page, row, col, l)
+                local layer = bind:get(page, r, c, l)
                 if layer then
-                    local x = (col - 1) * 32
-                    local y = (row - 1) * 16 + l * 7
-                    layer:draw(x, y)
+                    local x = (c - 1) * 32
+                    local y = (r - 1) * 16 + l * 7
+                    layer:draw(x, y, r == row and c == col)
                 end
             end
         end
@@ -136,10 +138,23 @@ end
 function enc(n, d)
     if n == 1 then
         set_page(util.wrap(page + d, 1, 3))
-        screen_dirty = true
+    elseif n == 2 or n == 3 then
+        local b = bind:get(page, row, col, n - 1)
+        if b.param then
+            b.param:delta(d)
+        end
     end
+    screen_dirty = true
 end
 
+function key(n, z)
+    if z == 1 and n == 2 then
+        row = util.wrap(row+1, 1, 4)
+    elseif z == 1 and n == 3 then
+        col = util.wrap(col+1, 1, 4)
+    end
+    screen_dirty = true
+end
 
 
 function init()
