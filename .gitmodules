@@ -1,3 +1,6 @@
 [submodule "lib/nb"]
 	path = lib/nb
 	url = https://github.com/sixolet/nb.git
+[submodule "lib/mftconf"]
+	path = lib/mftconf
+	url = https://github.com/juhavaaraniemi/mftconf.git

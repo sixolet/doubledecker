@@ -84,3 +84,4 @@ function Binding:set(normalized)
 end
 
 return Binding
+

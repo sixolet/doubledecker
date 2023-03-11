@@ -108,7 +108,7 @@ function redraw()
                 local layer = bind:get(page, row, col, l)
                 if layer then
                     local x = (col - 1) * 32
-                    local y = (row - 1) * 16 + l * 7                    
+                    local y = (row - 1) * 16 + l * 7
                     layer:draw(x, y)
                 end
             end
@@ -117,8 +117,19 @@ function redraw()
     screen.update()
 end
 
+local function mft_shade_page(n)
+    if page == 1 or page == 2 then
+        for row = 1, 4 do
+            for col = 1, 4 do
+                mft:set_rgb_level(page, row, col, page == 2 and (0.5 + row/8) or (1 - row/8))
+            end
+        end
+    end
+end
+
 local function set_page(n)
     mft:page(n)
+    mft_shade_page(n)
     page = n
 end
 
@@ -129,15 +140,24 @@ function enc(n, d)
     end
 end
 
+
+
 function init()
     nb:init()
-    mft:init()
+    mft:init('/home/we/dust/code/doubledecker/lib/dd.mfs')
+    mft_shade_page(1)
+    mft_shade_page(2)
     mft:page(1)
     mft.turn_action = function(page, row, col, layer, val)
         local b = bind:get(page, row, col, layer)
-        if b then 
-            b:set(val/128)
+        if b then
+            b:set(val / 128)
         end
+    end
+    mft.page_action = function(p)
+        page = p
+        screen_dirty = true
+        mft_shade_page(p)
     end
     osc.send(
         { "localhost", 57120 },
@@ -153,14 +173,14 @@ function init()
     nb:add_player_params()
     dd:active()
     bind:add_listener(function(page, row, col, layer, normalized)
-            screen_dirty = true
-        end)    
+        screen_dirty = true
+    end)
     bind:add_listener(function(page, row, col, layer, normalized)
-            mft:set_position(page, row, col, layer, math.floor(127*normalized))
-        end)
+        mft:set_position(page, row, col, layer, math.floor(127 * normalized))
+    end)
     params:read()
     clock.run(function()
-        clock.sleep(1/15)
+        clock.sleep(1 / 15)
         params:bang()
         while true do
             if screen_dirty then
