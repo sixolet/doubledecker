@@ -21,7 +21,7 @@ local Player = {
 }
 
 function Player:add_params()
-    params:add_group("doubledecker_group", "doubledecker", 91)
+    params:add_group("doubledecker_group", "doubledecker", 93)
     local function control_param(id, name, key, spec, binding)
         params:add_control(id, name, spec)
         local p = params:lookup_param(id)
@@ -188,6 +188,8 @@ function Player:add_params()
         0, 1, 0, 2, nil, bind:at(3, 2, 3, 2, "pres"))
     taper_param("doubledecker_lfo_pres_to_amp", "press->tremolo", "presToGlobalLfoToAmp",
         0, 1, 0, 2, nil, bind:at(3, 2, 4, 2, "pres"))
+    option_param("doubledecker_lfo_sync", "sync", "globalLfoSync", {"off", "on"}, 2)
+    option_param("doubledecker_lfo_scope", "scope", "globalLfoIndividual", {"global", "voice"})
     params:add_separator("doubledecker_deep", "deep patch options")
     min_param("doubledecker_layer_lfo_min", "pwm lfo min",
         { "doubledecker_layer_lfo_freq_1", "doubledecker_layer_lfo_freq_2" },
