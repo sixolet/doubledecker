@@ -1,5 +1,5 @@
 DoubleDecker {
-    classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseSynth, <noiseBus;
+    classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseSynth, <noiseBus, <pressures;
 
     *dynamicInit {
         if (group == nil, {
@@ -147,12 +147,12 @@ DoubleDecker {
                             \X, {0},
                             \S, {Saw.ar(freq)},
                             \P, {
-                                    layerLfo = SinOsc.kr(layerLfoFreq);
+                                    layerLfo = FSinOsc.kr(layerLfoFreq);
                                     modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
                                     Pulse.ar(freq, width: modPw);
                                 },
                             \B, { // When both waves are required, efficiency demands we use the LF versions.
-                                    layerLfo = SinOsc.kr(layerLfoFreq);
+                                    layerLfo = FSinOsc.kr(layerLfoFreq);
                                     modPw = pw / (1 + (layerLfoToPw*layerLfo.range(0, 1)));
                                     0.5*(LFPulse.ar(freq, width: modPw) + LFSaw.ar(freq));
                                 },
@@ -166,7 +166,7 @@ DoubleDecker {
                         sound = RLPF.ar(sound, modLpfFreq, lpfRes.linexp(0, 1, 1.2, 0.05));
 
                         // Mix with sine.
-                        sound = (filtAmp * sound) + (sineAmp * SinOsc.ar(freq));
+                        sound = (filtAmp * sound) + (sineAmp * FSinOsc.ar(freq));
 
                         // Velocity to amp
                         ampEnv = LinSelectX.kr(velToAmp, [ampEnv, velocity*ampEnv]);
@@ -265,6 +265,7 @@ DoubleDecker {
             amp: 0.25,      
         );
 		voices = nil!8;
+        pressures = 0!8;
         lfos = nil!8;
 		lastAction = 0;
         StartUp.add {
@@ -281,7 +282,7 @@ DoubleDecker {
                 var velocity = msg[3].asFloat;
                 DoubleDecker.dynamicInit();
                 Routine.new({
-                    var lfoLoc = (params.globalLfoIndividual > 0).if(voice, 1);
+                    var lfoLoc = (params.globalLfoIndividual > 0).if(voice, 0);
                     if (noiseSynth == nil, {
                         noiseSynth = Synth.new(
                             \doubledeckerNoise, 
@@ -295,6 +296,7 @@ DoubleDecker {
                             [
                                 \out, lfoBusses[voice], 
                                 \globalLfoFreq, params.globalLfoFreq,
+                                \presToGlobalLfoFreq, params.presToGlobalLfoFreq,
                                 \pressure, 0
                             ],
                             target:lfoGroup);
@@ -305,7 +307,7 @@ DoubleDecker {
                     if(voices[voice] == nil, {
                         var l1 = [\X, \S, \P, \B][params.waveform1];
                         var l2 = [\X, \S, \P, \B][params.waveform2];
-                        "waveform 1 % l1 %\n".postf(params.waveform1, l1);
+                        // "waveform 1 % l1 %\n".postf(params.waveform1, l1);
                         voices[voice] = Synth.new(
                             ("doubledecker" ++ l1 ++ l2), 
                             [
@@ -329,6 +331,7 @@ DoubleDecker {
                                 }, {
                                     if(allOff, {
                                         lfos.do(_.free);
+                                        pressures = 0!8;
                                     });
                                 });
                             });
@@ -347,8 +350,18 @@ DoubleDecker {
                     voices[voice].set(key, value);
                     // "% %\n".postf(key, value);
                 });
-                if(lfos[voice] != nil, {
-                    lfos[voice].set(key, value);
+                if (params.globalLfoIndividual > 0, {
+                    if(lfos[voice] != nil, {
+                        lfos[voice].set(key, value);
+                        //"% %\n".postf(key, value);                    
+                    });
+                }, {
+                    if(key == \pressure, {
+                        pressures[voice] = value;
+                        if(lfos[0] != nil, {
+                            lfos[0].set(key, pressures.maxItem)
+                        });
+                    });
                 });
             }, "/doubledecker/set_voice");
 
