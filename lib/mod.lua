@@ -73,7 +73,7 @@ function Player:add_params()
     local function min_param(id, name, targets, min, max, step, default)
         params:add_control(id, name, controlspec.new(min, max, 'lin', step, default))
     end
-    params:add_option("doubledecker_voices", "voices", {"mono", "unison", "3 pairs", "poly 4", "poly 6"}, 4)
+    params:add_option("doubledecker_voices", "voices", {"mono", "todo: unison", "todo: pairs", "poly 4", "poly 6"}, 4)
     params:set_action("doubledecker_voices", function(v)
         osc.send({"localhost", 57120}, "/doubledecker/all_off", {})
         if v == 1 or v == 2 then
@@ -89,9 +89,9 @@ function Player:add_params()
     control_param("doubledecker_mix", "mix", "mix",
         controlspec.new(0, 1, 'lin', 0, 0.5), bind:at(3, 1, 1, 1, "mix"))
     taper_param("doubledecker_amp", "amp", "amp",
-        0, 1, 0.25, 2, nil, bind:at(3, 1, 1, 2, "amp"))
+        0, 1, 0.25, 2, nil, bind:at(3, 1, 2, 2, "amp"))
     control_param("doubledecker_pan", "pan", "pan",
-        controlspec.new( -1, 1, 'lin', 0, 0)) -- TODO: add binding for pan
+        controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 1, 1, 2, "pan"))
     control_param("doubledecker_detune", "detune", "detune",
         controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 1, 3, 1, "detune"))
     control_param("doubledecker_drift", "drift", "drift",
