@@ -192,7 +192,7 @@ function g.key(x, y, z)
         return
     end
     if params:get("doubledecker_grid_mode") == 1 then
-        local note = 24
+        local note = params:get("doubledecker_grid_lowest")
         note = note + params:get("doubledecker_dx") * x
         note = note + params:get("doubledecker_dy") * (8 - y)
         if z == 1 then
@@ -246,7 +246,7 @@ local function grid_redraw()
     if params:get("doubledecker_grid_mode") == 1 then
         for x = 1, 16, 1 do
             for y = 1, 8, 1 do
-                local note = 24
+                local note = params:get("doubledecker_grid_lowest")
                 note = note + params:get("doubledecker_dx") * x
                 note = note + params:get("doubledecker_dy") * (8 - y)
                 local hs = note % 12
@@ -354,10 +354,11 @@ function init()
     params:add_number("bend range", "bend range", 2, 48, 12)
     params:set_action("midi source", midi_target)
     nb:add_player_params()
-    params:add_group("doubledecker_grid", "grid", 3)
+    params:add_group("doubledecker_grid", "grid", 4)
     params:add_option("doubledecker_grid_mode", "grid mode", { "keyboard", "controller" })
     params:add_number("doubledecker_dx", "grid key dx", 1, 7, 1)
     params:add_number("doubledecker_dy", "grid key dy", 1, 12, 5)
+    params:add_number("doubledecker_grid_lowest", "lowest note", 0, 36, 24)
     dd:active()
     bind:add_listener(function(page, row, col, layer, normalized)
         screen_dirty = true
