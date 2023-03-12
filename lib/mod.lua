@@ -100,6 +100,7 @@ function Player:add_params()
         elseif v == 5 then
             self.alloc = voice.new(6, voice.MODE_LRU)
         end
+        self.notes = {}
     end)
     control_param("doubledecker_mix", "mix", "mix",
         controlspec.new(0, 1, 'lin', 0, 0.5), bind:at(3, 1, 1, 1, "mix"))
