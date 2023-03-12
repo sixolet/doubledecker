@@ -20,8 +20,21 @@ local Player = {
     notes = {},
 }
 
+function Player:read_partial_pset(filename)
+    for line in io.lines(filename) do
+        for p, v in string.gmatch(line, '.(doubledecker_[%w_]*).: (%d+%.?%d*)') do
+            print(p, v)
+            if params.lookup[p] then
+                local param = params:lookup_param(p)
+                param:set(tonumber(v))
+            end
+        end
+    end
+end
+
 function Player:add_params()
-    params:add_group("doubledecker_group", "doubledecker", 93)
+    local loading = true
+    params:add_group("doubledecker_group", "doubledecker", 95)
     local function control_param(id, name, key, spec, binding)
         params:add_control(id, name, spec)
         local p = params:lookup_param(id)
@@ -69,13 +82,15 @@ function Player:add_params()
     end
     local function max_param(id, name, targets, min, max, step, default)
         params:add_control(id, name, controlspec.new(min, max, 'lin', step, default))
+        params:hide(id)
     end
     local function min_param(id, name, targets, min, max, step, default)
         params:add_control(id, name, controlspec.new(min, max, 'lin', step, default))
+        params:hide(id)
     end
-    params:add_option("doubledecker_voices", "voices", {"mono", "todo: unison", "todo: pairs", "poly 4", "poly 6"}, 4)
+    params:add_option("doubledecker_voices", "voices", { "mono", "todo: unison", "todo: pairs", "poly 4", "poly 6" }, 4)
     params:set_action("doubledecker_voices", function(v)
-        osc.send({"localhost", 57120}, "/doubledecker/all_off", {})
+        osc.send({ "localhost", 57120 }, "/doubledecker/all_off", {})
         if v == 1 or v == 2 then
             self.alloc = voice.new(1, voice.MODE_LRU)
         elseif v == 3 then
@@ -157,13 +172,13 @@ function Player:add_params()
         control_param("doubledecker_pressure_to_amp_" .. l, "pressure->amp", "presToAmp" .. l,
             controlspec.new(0, 1, 'lin', 0, 0.5), bind:at(l, 2, 4, 2, "pAmp"))
         control_param("doubledecker_filter_keyfollow_lo_" .. l, "filter keyfollow lo", "filtKeyfollowLo" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 1, l, "f lo"..l))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 1, l, "f lo" .. l))
         control_param("doubledecker_filter_keyfollow_hi_" .. l, "filter keyfollow hi", "filtKeyfollowHi" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 2, l, "f hi"..l))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 2, l, "f hi" .. l))
         control_param("doubledecker_amp_keyfollow_lo_" .. l, "amp keyfollow lo", "ampKeyfollowLo" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 3, l, "a lo"..l))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 3, l, "a lo" .. l))
         control_param("doubledecker_amp_keyfollow_hi_" .. l, "amp keyfollow hi", "ampKeyfollowHi" .. l,
-            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 4, l, "a hi"..l))
+            controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 4, 4, l, "a hi" .. l))
         taper_param("doubledecker_layer_amp_" .. l, "layer amp", "layerAmp" .. l,
             0, 1, 1, 2, nil, bind:at(l, 1, 4, 2, "layer" .. l))
         option_param("doubledecker_invert_hpf_" .. l, "hpf response coef", "fEnvHiInvert" .. l,
@@ -188,9 +203,35 @@ function Player:add_params()
         0, 1, 0, 2, nil, bind:at(3, 2, 3, 2, "pres"))
     taper_param("doubledecker_lfo_pres_to_amp", "press->tremolo", "presToGlobalLfoToAmp",
         0, 1, 0, 2, nil, bind:at(3, 2, 4, 2, "pres"))
-    option_param("doubledecker_lfo_sync", "sync", "globalLfoSync", {"off", "on"}, 2)
-    option_param("doubledecker_lfo_scope", "scope", "globalLfoIndividual", {"global", "voice"})
-    params:add_separator("doubledecker_deep", "deep patch options")
+    option_param("doubledecker_lfo_sync", "sync", "globalLfoSync", { "off", "on" }, 2)
+    option_param("doubledecker_lfo_scope", "scope", "globalLfoIndividual", { "global", "voice" })
+    params:add_separator("doubledecker_deep", "meta stuff")
+    params:add_trigger("doubledecker_init", "init patch")
+    params:set_action("doubledecker_init", function()
+        for _, p in ipairs(params.params) do
+            if string.sub(p.id, 1, 13) == "doubledecker_" then
+                p:set_default()
+            end
+        end
+        params:set("doubledecker_lp_freq_1", 20000)
+        params:set("doubledecker_lp_freq_2", 20000)
+        params:set("doubledecker_hp_freq_1", 20)
+        params:set("doubledecker_hp_freq_2", 20)
+        params:set("doubledecker_filter_attack_level_1", 0)
+        params:set("doubledecker_filter_attack_level_2", 0)
+    end)
+    params:add_file("doubledecker_preset", "preset")
+    params:set_action("doubledecker_preset", function(filename)
+        if loading then return end
+        if not util.file_exists(filename) then
+            print("can't find", filename)
+        end
+        if filename:sub( -5) == ".pset" then
+            self:read_partial_pset(filename)
+        else
+            print(filename:sub( -5))
+        end
+    end)
     min_param("doubledecker_layer_lfo_min", "pwm lfo min",
         { "doubledecker_layer_lfo_freq_1", "doubledecker_layer_lfo_freq_2" },
         0.1, 5, 0.1, 0.7)
@@ -218,6 +259,11 @@ function Player:add_params()
         },
         15, 150, 1, 15)
     params:hide("doubledecker_group")
+    clock.run(function ()
+        clock.sleep(4)
+        -- Do not load the pset file on initial load.
+        loading = false
+    end)
 end
 
 function Player:note_on(note, vel, properties)
