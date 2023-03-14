@@ -2,6 +2,7 @@ local music = require("musicutil")
 local mod = require 'core/mods'
 local voice = require 'lib/voice'
 local bind = require 'doubledecker/lib/binding'
+local ddpreset = require 'doubledecker/lib/preset'
 
 if note_players == nil then
     note_players = {}
@@ -113,7 +114,7 @@ function Player:add_params()
     control_param("doubledecker_drift", "drift", "drift",
         controlspec.new(0, 1, 'lin', 0, 0), bind:at(3, 1, 4, 2, "drift"))
     control_param("doubledecker_pitch_env", "pitch env amount", "pitchEnvAmount",
-        controlspec.new( -0.75, 2, 'lin', 0, 0), bind:at(3, 1, 3, 2, "pEnv"))
+        controlspec.new( -2, 2, 'lin', 0, 0), bind:at(3, 1, 3, 2, "pEnv"))
     taper_param("doubledecker_portomento", "portomento", "portomento",
         0, 10, 0, 2, 's', bind:at(3, 1, 4, 1, "port"))
     control_param("doubledecker_brilliance", "brilliance", "globalBrilliance",
@@ -222,15 +223,34 @@ function Player:add_params()
         params:set("doubledecker_filter_attack_level_2", 0)
     end)
     params:add_file("doubledecker_preset", "preset")
+    params:add_number("doubledecker_preset_num", "n", 1, 128, 1)
+    params:hide("doubledecker_preset_num")
     params:set_action("doubledecker_preset", function(filename)
         if loading then return end
+        params:hide("doubledecker_preset_num")
         if not util.file_exists(filename) then
             print("can't find", filename)
         end
         if filename:sub( -5) == ".pset" then
             self:read_partial_pset(filename)
+        elseif filename:sub(-2) == ".p" then
+            ddpreset:read_file(filename)
+            params:show("doubledecker_preset_num")
+            ddpreset:load_preset(util.wrap(params:get("doubledecker_preset_num"), 1, ddpreset.n_psets))
         else
-            print(filename:sub( -5))
+            print("not a recognized preset format: ", filename)
+        end
+        _menu.rebuild_params()
+    end)
+
+    params:set_action("doubledecker_preset_num", function()
+        if loading then return end
+        local filename = params:get("doubledecker_preset")
+        if filename:sub(-2) == ".p" then
+            if ddpreset.n_psets == 0 then
+                ddpreset:read_file(filename)
+            end
+            ddpreset:load_preset(util.wrap(params:get("doubledecker_preset_num"), 1, ddpreset.n_psets))
         end
     end)
     min_param("doubledecker_layer_lfo_min", "pwm lfo min",

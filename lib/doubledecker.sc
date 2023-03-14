@@ -111,35 +111,20 @@ DoubleDecker {
                             (3*filterEnv) + 
                             (presToFilt*pressure) + 
                             (velToFilt*velocity) +
-                            (0.6*globalBrilliance));
-                        modLpfFreq = lpfFreq * filtFreqRatio * lpfMod.linexp(-7.6, 7.6, 1/200, 200);
+                            (2.32*globalBrilliance));
+                        modLpfFreq = lpfFreq * filtFreqRatio * lpfMod.linexp(-7.6, 7.6, 1/320, 320);
 
                         hpfMod = (
                             (fEnvHiInvert*(
                                 (globalLfoToFilterFreq*globalLfo) +
                                 (pressure*presToGlobalLfoToFilterFreq*globalLfo) + 
-                                (3*filterEnv))) -
+                                (filterEnv))) -
                             (presToFilt*pressure) -
                             (velToFilt*velocity) - 
                             (0.6*globalBrilliance)
                         );
-                        modHpfFreq = hpfFreq * filtFreqRatio * hpfMod.linexp(-7.6, 7.6, 1/200, 200);
-                        // modLpfFreq = lpfFreq * (globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
-                        // modLpfFreq = modLpfFreq * filtFreqRatio;
-                        // modLpfFreq = modLpfFreq * (pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
-                        // modLpfFreq = modLpfFreq * filterEnv.linexp(-1, 1, 1/16, 16);
-                        // modLpfFreq = modLpfFreq * (presToFilt*pressure).linexp(-1, 1, 1/2, 2);
-                        // modLpfFreq = modLpfFreq * (velToFilt*velocity).linexp(-1, 1, 1/2, 2);
-                        // modLpfFreq = modLpfFreq * globalBrilliance.linexp(-1, 1, 5/8, 8/5);
+                        modHpfFreq = hpfFreq * filtFreqRatio * hpfMod.linexp(-7.6, 7.6, 1/50, 50);
                         modLpfFreq = modLpfFreq.clip(20, 17000);
-
-                        // modHpfFreq = hpfFreq * (fEnvHiInvert*globalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
-                        // modHpfFreq = modHpfFreq * filtFreqRatio;
-                        // modHpfFreq = modHpfFreq * (fEnvHiInvert*pressure*presToGlobalLfoToFilterFreq*globalLfo).linexp(-1, 1, 1/4, 4);
-                        // modHpfFreq = modHpfFreq * (fEnvHiInvert*filterEnv).linexp(-1, 1, 1/4, 4);
-                        // modHpfFreq = modHpfFreq * (presToFilt*pressure).linexp(-1, 1, 2, 1/2);
-                        // modHpfFreq = modHpfFreq * (velToFilt*velocity).linexp(-1, 1, 2, 1/2);
-                        // modHpfFreq = modHpfFreq * globalBrilliance.linexp(-1, 1, 8/5, 5/8);
                         modHpfFreq = modHpfFreq.clip(20, 17000);
 
                         // Our main oscs
@@ -179,12 +164,15 @@ DoubleDecker {
                         sound = layerAmp*ampEnv*ampRatio*sound;              
                         sound;
                     };
-                    var globalLfo, modFreq, noiseUgen, layer1, layer2, mixed, detuneRatio, driftAddition;
+                    var globalLfo, modFreq, noiseUgen, layer1, layer2, mixed, detuneRatio, driftAddition, pitchEnv;
                     globalLfo = In.kr(globalLfoBus, 1);
                     detuneRatio = detune.linexp(0, 1, 1, 2**(1/12));
                     driftAddition = 3*drift*LFNoise1.kr(0.01);
+                    pitchEnv = Env.new(
+                        levels: [(pitchEnvAmount*velocity).linexp(-2, 2, 1/4, 4), 1],
+                        times: [0.1]);
                     modFreq = freq.lag(portomento);
-                    modFreq = modFreq * (1 + (pitchEnvAmount*EnvGen.kr(Env.perc(attackTime: 0, releaseTime: portomento))));
+                    modFreq = modFreq * EnvGen.kr(pitchEnv, gate, doneAction: Done.none);
                     // Full range of frequency modulation is about +/- a full step; gentle.
                     modFreq = modFreq * (1 + (0.1*globalLfoToFreq*globalLfo));
                     modFreq = modFreq * (1 + (0.1*presToGlobalLfoToFreq*pressure*globalLfo));
