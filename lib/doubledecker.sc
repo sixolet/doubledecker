@@ -43,7 +43,7 @@ DoubleDecker {
             (["X", "S", "P", "B"]!2).allTuples.do { |tup|
                 SynthDef(("doubledecker"++tup[0]++tup[1]).asSymbol, {
                     | 
-                    out, freq=220, velocity=0.4, pressure=0.1, gate=1, pan=0,// per-note stuff
+                    out, freq=220, velocity=0.4, pressure=0.1, gate=1, panSpread=0,// per-note stuff
                     // layer 1
                     pitchRatio1=1,
                     layerLfoFreq1=3, pw1=0.4, noise1=0,
@@ -67,6 +67,7 @@ DoubleDecker {
                     filtKeyfollowLo2, filtKeyfollowHi2, ampKeyfollowLo2, ampKeyfollowHi2,
                     layerAmp2,
                     // Both layers
+                    pan=0,
                     noiseBus, globalLfoBus, 
                     globalLfoToFreq, presToGlobalLfoToFreq,
                     globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
@@ -214,15 +215,16 @@ DoubleDecker {
                     mixed = LinSelectX.ar(mix, [layer1, layer2]);
                     DetectSilence.ar(mixed+Impulse.ar(0), doneAction: Done.freeSelf);
                     mixed = amp*mixed;
-                    Out.ar(out, Pan2.ar(mixed, pan));
+                    Out.ar(out, Pan2.ar(mixed, pan + panSpread));
                 }).add;
             };
     }
 
     *initClass {
         params = (
-            globalLfoFreq: 4, presToGlobalLfoFreq: 0, 
+            globalLfoFreq: 4, presToGlobalLfoFreq: 0,
             globalLfoShape: 0, globalLfoSync: 1, globalLfoIndividual: 1,
+            pan: 0,
 
             waveform1: 1, pitchRatio1: 1,
             layerLfoFreq1: 3, pw1: 0.4, noise1: 0,
@@ -268,7 +270,9 @@ DoubleDecker {
                 var voice = msg[1].asInteger;
                 var hz = msg[2].asFloat.clip(8, 6271.9);
                 var velocity = msg[3].asFloat;
+                var panSpread = msg[4].asFloat;
                 DoubleDecker.dynamicInit();
+                // "on % % % %\n".postf(voice, hz, velocity, panSpread);
                 Routine.new({
                     var lfoLoc = (params.globalLfoIndividual > 0).if(voice, 0);
                     if (noiseSynth == nil, {
@@ -303,6 +307,7 @@ DoubleDecker {
                                 \velocity, velocity, 
                                 \globalLfoBus, lfoBusses[voice],
                                 \noiseBus, noiseBus,
+                                \panSpread, panSpread,
                             ]++params.asPairs,
                             target: group);
                         voices[voice].onFree({
@@ -334,6 +339,7 @@ DoubleDecker {
                 var key = msg[2].asSymbol;
                 var value = msg[3].asFloat;
                 DoubleDecker.dynamicInit();
+                // "set % % %\n".postf(voice, key, value);
                 if(voices[voice] != nil, {
                     voices[voice].set(key, value);
                     // "% %\n".postf(key, value);

@@ -89,18 +89,27 @@ function Player:add_params()
         params:add_control(id, name, controlspec.new(min, max, 'lin', step, default))
         params:hide(id)
     end
-    params:add_option("doubledecker_voices", "voices", { "mono", "todo: unison", "todo: pairs", "poly 4", "poly 6" }, 4)
+    params:add_option("doubledecker_voices", "voices", { "mono", "1 pair", "3 pairs", "poly 4", "poly 6" }, 4)
+    params:add_control("doubledecker_voice_spread", "spread", controlspec.BIPOLAR)
     params:set_action("doubledecker_voices", function(v)
         osc.send({ "localhost", 57120 }, "/doubledecker/all_off", {})
-        if v == 1 or v == 2 then
+        if v == 1 then
             self.alloc = voice.new(1, voice.MODE_LRU)
+            params:hide("doubledecker_voice_spread")
+        elseif v == 2 then
+            self.alloc = voice.new(1, voice.MODE_LRU)
+            params:show("doubledecker_voice_spread")
         elseif v == 3 then
             self.alloc = voice.new(3, voice.MODE_LRU)
+            params:show("doubledecker_voice_spread")
         elseif v == 4 then
             self.alloc = voice.new(4, voice.MODE_LRU)
+            params:hide("doubledecker_voice_spread")
         elseif v == 5 then
             self.alloc = voice.new(6, voice.MODE_LRU)
+            params:hide("doubledecker_voice_spread")
         end
+        _menu.rebuild_params()
         self.notes = {}
     end)
     control_param("doubledecker_mix", "mix", "mix",
@@ -233,7 +242,7 @@ function Player:add_params()
         end
         if filename:sub( -5) == ".pset" then
             self:read_partial_pset(filename)
-        elseif filename:sub(-2) == ".p" then
+        elseif filename:sub( -2) == ".p" then
             ddpreset:read_file(filename)
             params:show("doubledecker_preset_num")
             ddpreset:load_preset(util.wrap(params:get("doubledecker_preset_num"), 1, ddpreset.n_psets))
@@ -246,7 +255,7 @@ function Player:add_params()
     params:set_action("doubledecker_preset_num", function()
         if loading then return end
         local filename = params:get("doubledecker_preset")
-        if filename:sub(-2) == ".p" then
+        if filename:sub( -2) == ".p" then
             if ddpreset.n_psets == 0 then
                 ddpreset:read_file(filename)
             end
@@ -280,11 +289,26 @@ function Player:add_params()
         },
         15, 150, 1, 15)
     params:hide("doubledecker_group")
-    clock.run(function ()
+    clock.run(function()
         clock.sleep(4)
         -- Do not load the pset file on initial load.
         loading = false
     end)
+end
+
+local spreads_table = {
+    { 0 }, -- mono
+    { -1, 1 }, -- unison
+    { -1, 1 }, -- pairs
+    { 0 }, -- 4
+    { 0 }, -- 6
+}
+
+local function spreads()
+    local voices = params:get("doubledecker_voices")
+    --print("spreads table")
+    --tab.print(spreads_table[voices])
+    return spreads_table[voices]
 end
 
 function Player:note_on(note, vel, properties)
@@ -299,14 +323,34 @@ function Player:note_on(note, vel, properties)
     --print("create", note, slot.id)
     local freq = music.note_num_to_freq(note % 128)
     local v = slot.id - 1
+    local spread_amount = params:get("doubledecker_voice_spread")
+    local detune = params:get("doubledecker_detune")
     slot.on_release = function()
         --print("release", note, slot.id)
         -- TODO: Find any voices this covered.
-        osc.send({ "localhost", 57120 }, "/doubledecker/set_voice", { v, "gate", 0 })
+        for i, _ in ipairs(spreads()) do
+            local vv = v + (i - 1) * 4
+            osc.send(
+                { "localhost", 57120 },
+                "/doubledecker/set_voice",
+                { vv, "gate", 0 }
+            )
+        end
         slot.count = nil
         self.notes[note] = nil
     end
-    osc.send({ "localhost", 57120 }, "/doubledecker/note_on", { v, freq, vel });
+    for i, s in ipairs(spreads()) do
+        local vv = v + (i - 1) * 4
+        osc.send(
+            { "localhost", 57120 },
+            "/doubledecker/note_on",
+            {
+                vv,
+                freq * (1.0594 ^ (s * detune)),
+                vel,
+                s * spread_amount
+            });
+    end
     self.notes[note] = slot;
 end
 
@@ -324,10 +368,13 @@ function Player:modulate_note(note, key, value)
     if key == "pressure" then
         local slot = self.notes[note]
         if slot then
-            osc.send(
-                { "localhost", 57120 },
-                "/doubledecker/set_voice",
-                { slot.id - 1, "pressure", value })
+            for i, _ in ipairs(spreads()) do
+                local vv = (slot.id - 1) + (i - 1) * 4
+                osc.send(
+                    { "localhost", 57120 },
+                    "/doubledecker/set_voice",
+                    { vv, "pressure", value })
+            end
         end
     end
 end
@@ -336,11 +383,15 @@ function Player:pitch_bend(note, amount)
     local slot = self.notes[note]
     -- print("pb", note, amount)
     if slot then
-        local freq = music.note_num_to_freq(note % 128 + amount)
-        osc.send(
-            { "localhost", 57120 },
-            "/doubledecker/set_voice",
-            { slot.id - 1, "freq", freq })
+        for i, s in ipairs(spreads()) do
+            local freq = music.note_num_to_freq(note % 128 + amount)
+            local detune = params:get("doubledecker_detune")
+            local vv = (slot.id - 1) + (i - 1) * 4
+            osc.send(
+                { "localhost", 57120 },
+                "/doubledecker/set_voice",
+                { vv, "freq", freq * (1.0594 ^ (s * detune)) })
+        end
     end
 end
 
