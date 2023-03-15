@@ -43,7 +43,7 @@ DoubleDecker {
             (["X", "S", "P", "B"]!2).allTuples.do { |tup|
                 SynthDef(("doubledecker"++tup[0]++tup[1]).asSymbol, {
                     | 
-                    out, freq=220, velocity=0.4, pressure=0.4, gate=1, pan=0,// per-note stuff
+                    out, freq=220, velocity=0.4, pressure=0.1, gate=1, pan=0,// per-note stuff
                     // layer 1
                     pitchRatio1=1,
                     layerLfoFreq1=3, pw1=0.4, noise1=0,
