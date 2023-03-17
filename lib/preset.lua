@@ -436,6 +436,7 @@ function Preset:load_preset(n)
     n = n - 1
     local bytes = { string.byte(self.bank, 98 * n + 1, 98 * (n + 1)) }
     for i = 98, 1, -1 do
+        print(self.byte_descriptors[i].name, bytes[i])
         self.byte_descriptors[i].converter:setByte(bytes[i])
     end
 end
