@@ -326,6 +326,7 @@ end
 
 
 function init()
+    dd:copy_psets()
     nb:init()
     mft:init('/home/we/dust/code/doubledecker/lib/dd.mfs')
     mft_shade_page(1)
@@ -356,6 +357,7 @@ function init()
     nb:add_player_params()
     params:add_group("doubledecker_grid", "grid", 4)
     params:add_option("doubledecker_grid_mode", "grid mode", { "keyboard", "controller" })
+    params:hide("doubledecker_grid_mode")
     params:add_number("doubledecker_dx", "grid key dx", 1, 7, 1)
     params:add_number("doubledecker_dy", "grid key dy", 1, 12, 5)
     params:add_number("doubledecker_grid_lowest", "lowest note", 0, 36, 24)

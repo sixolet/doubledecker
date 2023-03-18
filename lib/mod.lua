@@ -21,16 +21,27 @@ local Player = {
     notes = {},
 }
 
+local skip_when_reading = {
+    doubledecker_preset = true,
+    doubledecker_preset_num = true,
+}
+
 function Player:read_partial_pset(filename)
     for line in io.lines(filename) do
         for p, v in string.gmatch(line, '.(doubledecker_[%w_]*).: (%d+%.?%d*)') do
             print(p, v)
-            if params.lookup[p] then
+            if params.lookup[p] and not skip_when_reading[p] then
                 local param = params:lookup_param(p)
                 param:set(tonumber(v))
             end
         end
     end
+end
+
+function Player:copy_psets()
+    util.make_dir(_path.data.."doubledecker")
+    os.execute('cp '.. _path.code .. 'doubledecker/lib/preset/*.p '.. _path.data .. 'doubledecker/')
+    os.execute('cp '.. _path.code .. 'doubledecker/lib/preset/*.pset '.. _path.data .. 'doubledecker/')
 end
 
 function Player:add_params()
@@ -217,26 +228,13 @@ function Player:add_params()
     option_param("doubledecker_lfo_sync", "sync", "globalLfoSync", { "off", "on" }, 2)
     option_param("doubledecker_lfo_scope", "scope", "globalLfoIndividual", { "global", "voice" })
     params:add_separator("doubledecker_deep", "meta stuff")
-    params:add_trigger("doubledecker_init", "init patch")
-    params:set_action("doubledecker_init", function()
-        for _, p in ipairs(params.params) do
-            if string.sub(p.id, 1, 13) == "doubledecker_" then
-                p:set_default()
-            end
-        end
-        params:set("doubledecker_lp_freq_1", 20000)
-        params:set("doubledecker_lp_freq_2", 20000)
-        params:set("doubledecker_hp_freq_1", 20)
-        params:set("doubledecker_hp_freq_2", 20)
-        params:set("doubledecker_filter_attack_level_1", 0)
-        params:set("doubledecker_filter_attack_level_2", 0)
-    end)
-    params:add_file("doubledecker_preset", "preset")
+    -- params:add_trigger("doubledecker_init", "init patch")
+    params:add_file("doubledecker_preset", "preset", _path.data.."doubledecker/dd_f.p")
+    params:lookup_param("doubledecker_preset").dir = _path.data.."doubledecker"
     params:add_number("doubledecker_preset_num", "n", 1, 128, 1)
-    params:hide("doubledecker_preset_num")
-    params:set_action("doubledecker_preset", function(filename)
-        if loading then return end
-        params:hide("doubledecker_preset_num")
+    params:add_trigger("doubledecker_preset_load", "load")
+    params:set_action("doubledecker_preset_load", function()
+        local filename = params:get("doubledecker_preset")
         if not util.file_exists(filename) then
             print("can't find", filename)
         end
@@ -248,19 +246,16 @@ function Player:add_params()
             ddpreset:load_preset(util.wrap(params:get("doubledecker_preset_num"), 1, ddpreset.n_psets))
         else
             print("not a recognized preset format: ", filename)
+        end        
+    end)
+    -- params:hide("doubledecker_preset_num")
+    params:set_action("doubledecker_preset", function(filename)
+        if loading then return end
+        params:hide("doubledecker_preset_num")
+        if filename:sub( -2) == ".p" then
+            params:show("doubledecker_preset_num")
         end
         _menu.rebuild_params()
-    end)
-
-    params:set_action("doubledecker_preset_num", function()
-        if loading then return end
-        local filename = params:get("doubledecker_preset")
-        if filename:sub( -2) == ".p" then
-            if ddpreset.n_psets == 0 then
-                ddpreset:read_file(filename)
-            end
-            ddpreset:load_preset(util.wrap(params:get("doubledecker_preset_num"), 1, ddpreset.n_psets))
-        end
     end)
     min_param("doubledecker_layer_lfo_min", "pwm lfo min",
         { "doubledecker_layer_lfo_freq_1", "doubledecker_layer_lfo_freq_2" },
@@ -416,6 +411,7 @@ function Player:note_off(note)
 end
 
 mod.hook.register("system_post_startup", "doubledecker post startup", function()
+    Player:copy_psets()
 end)
 
 mod.hook.register("script_pre_init", "doubledecker pre init", function()
