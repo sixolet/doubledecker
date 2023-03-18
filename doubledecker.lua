@@ -214,6 +214,14 @@ function g.key(x, y, z)
             p = 2
             r = y
             c = x - 6
+        elseif x == 12 or x == 13 then
+            local b = bind:get(page, row, col, 1)
+            b:set((9 - y) / 8)
+            screen_dirty = true
+        elseif x == 15 or x == 16 then
+            local b = bind:get(page, row, col, 2)
+            b:set((9 - y) / 8)
+            screen_dirty = true
         end
         if p then
             row = r
