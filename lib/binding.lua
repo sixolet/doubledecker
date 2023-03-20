@@ -60,6 +60,11 @@ function Binding:add_listener(f)
     table.insert(self.receivers, f)
 end
 
+function Binding:clear()
+    self.bindings = {}
+    self.receivers = {}
+end
+
 function Binding:communicate(normalized)
     self.display_value = normalized
     for _, f in ipairs(self.receivers) do
@@ -84,4 +89,3 @@ function Binding:set(normalized)
 end
 
 return Binding
-

@@ -19,7 +19,7 @@
 -- Plug that in now.
 -- (will override its config)
 --
--- Or use a grid.
+-- Or use a grid.:
 
 local dd = require('doubledecker/lib/mod')
 local nb = require('doubledecker/lib/nb/lib/nb')
@@ -389,4 +389,8 @@ function init()
             clock.sleep(1 / 15)
         end
     end)
+end
+
+function cleanup()
+    bind:clear()
 end
