@@ -1,12 +1,13 @@
 DoubleDecker {
-    classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseSynth, <noiseBus, <pressures;
+    classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseBuf, <pressures;
 
     *dynamicInit {
         if (group == nil, {
+            var arr = FloatArray.fill(48000 * 4.0, {1.0.rand2});
+            noiseBuf = Buffer.loadCollection(Server.default, arr);
 	        group = Group.new;
             lfoGroup = Group.before(group);
             lfoBusses = 8.collect(Bus.control(Server.default, 1));
-            noiseBus = Bus.audio(Server.default, 1);
             DoubleDecker.addSynthdefs();
             "Double Decker Line".postln;
         });
@@ -68,7 +69,7 @@ DoubleDecker {
                     layerAmp2,
                     // Both layers
                     pan=0,
-                    noiseBus, globalLfoBus, 
+                    noiseBuf, globalLfoBus, 
                     globalLfoToFreq, presToGlobalLfoToFreq,
                     globalLfoToFilterFreq, presToGlobalLfoToFilterFreq,
                     globalLfoToAmp, presToGlobalLfoToAmp,
@@ -177,7 +178,7 @@ DoubleDecker {
                     // Full range of frequency modulation is about +/- a full step; gentle.
                     modFreq = modFreq * (1 + (0.1*globalLfoToFreq*globalLfo));
                     modFreq = modFreq * (1 + (0.1*presToGlobalLfoToFreq*pressure*globalLfo));
-                    noiseUgen = In.ar(noiseBus, 1);
+                    noiseUgen = PlayBuf.ar(1, noiseBuf, startPos: IRand.new(0, SampleRate.ir*4), loop: 1);
                     layer1 = layer.value(
                         tup[0].asSymbol,
                         keyRatio,
@@ -275,13 +276,6 @@ DoubleDecker {
                 // "on % % % %\n".postf(voice, hz, velocity, panSpread);
                 Routine.new({
                     var lfoLoc = (params.globalLfoIndividual > 0).if(voice, 0);
-                    if (noiseSynth == nil, {
-                        noiseSynth = Synth.new(
-                            \doubledeckerNoise, 
-                            [\out, noiseBus],
-                            target:lfoGroup);
-                        Server.default.sync;
-                    });
                     if(lfos[lfoLoc] == nil, {
                         lfos[lfoLoc] = Synth.new(
                             lfoOptions[params.globalLfoShape.asInteger], 
@@ -306,7 +300,7 @@ DoubleDecker {
                                 \freq, hz, 
                                 \velocity, velocity, 
                                 \globalLfoBus, lfoBusses[voice],
-                                \noiseBus, noiseBus,
+                                \noiseBuf, noiseBuf,
                                 \panSpread, panSpread,
                             ]++params.asPairs,
                             target: group);
@@ -314,10 +308,7 @@ DoubleDecker {
                             var allOff;
                             voices[voice] = nil;
                             allOff = voices.every({|x, i| x == nil});                            
-                            if(allOff && (noiseSynth != nil), {
-                                noiseSynth.free;
-                                noiseSynth = nil;
-                            });
+
                             if(params.globalLfoSync > 0, {
                                 if(params.globalLfoIndividual > 0, {
                                     lfos[voice].free;
