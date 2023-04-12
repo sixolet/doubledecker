@@ -46,7 +46,8 @@ end
 
 function Player:add_params()
     local loading = true
-    params:add_group("doubledecker_group", "doubledecker", 95)
+    params:add_group("doubledecker_group", "doubledecker", 96)
+
     local function control_param(id, name, key, spec, binding)
         params:add_control(id, name, spec)
         local p = params:lookup_param(id)
@@ -102,23 +103,37 @@ function Player:add_params()
     end
     params:add_option("doubledecker_voices", "voices", { "mono", "1 pair", "3 pairs", "poly 4", "poly 6" }, 4)
     params:add_control("doubledecker_voice_spread", "spread", controlspec.BIPOLAR)
+    local phase_spread = control_param("doubledecker_lfo_phase_spread", "lfo spread", "lfoPhaseSpread", controlspec.UNIPOLAR)
+    local psa = phase_spread.action
+    phase_spread.action = function(v)
+        -- We need to reset everything when changing phase spread, because it changes lfo allocation
+        psa(v)
+        osc.send({ "localhost", 57120 }, "/doubledecker/all_off", {})
+        self.notes = {}
+    end
+
     params:set_action("doubledecker_voices", function(v)
         osc.send({ "localhost", 57120 }, "/doubledecker/all_off", {})
         if v == 1 then
             self.alloc = voice.new(1, voice.MODE_LRU)
             params:hide("doubledecker_voice_spread")
+            params:hide("doubledecker_lfo_phase_spread")
         elseif v == 2 then
             self.alloc = voice.new(1, voice.MODE_LRU)
             params:show("doubledecker_voice_spread")
+            params:show("doubledecker_lfo_phase_spread")
         elseif v == 3 then
             self.alloc = voice.new(3, voice.MODE_LRU)
             params:show("doubledecker_voice_spread")
+            params:show("doubledecker_lfo_phase_spread")
         elseif v == 4 then
             self.alloc = voice.new(4, voice.MODE_LRU)
             params:hide("doubledecker_voice_spread")
+            params:hide("doubledecker_lfo_phase_spread")
         elseif v == 5 then
             self.alloc = voice.new(6, voice.MODE_LRU)
             params:hide("doubledecker_voice_spread")
+            params:hide("doubledecker_lfo_phase_spread")
         end
         _menu.rebuild_params()
         self.notes = {}

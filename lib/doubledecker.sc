@@ -7,10 +7,20 @@ DoubleDecker {
             noiseBuf = Buffer.loadCollection(Server.default, arr);
 	        group = Group.new;
             lfoGroup = Group.before(group);
-            lfoBusses = 8.collect(Bus.control(Server.default, 1));
+            lfoBusses = 8.collect({Bus.control(Server.default, 1)});
             DoubleDecker.addSynthdefs();
             "Double Decker Line".postln;
         });
+    }
+
+    *lfoLocForVoice { |v|
+        var lfoLoc = if (params.globalLfoIndividual > 0, {
+                v;
+            },
+            {
+                if ((params.lfoPhaseSpread > 0) && (v >= 3), {3}, {0});
+            });
+        ^lfoLoc;
     }
 
     *addSynthdefs {
@@ -18,23 +28,23 @@ DoubleDecker {
                 Out.ar(out, WhiteNoise.ar);
             }).add;
             SynthDef(\doubledeckerLfoSine, { 
-                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
-                Out.kr(out, SinOsc.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0, phase=0|
+                Out.kr(out, SinOsc.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1), phase: phase));
             }).add;
             SynthDef(\doubledeckerLfoSaw, { 
-                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
-                Out.kr(out, -1*LFSaw.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0, phase=0|
+                Out.kr(out, -1*LFSaw.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1), iphase: phase));
             }).add; 
             SynthDef(\doubledeckerLfoRamp, { 
-                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
-                Out.kr(out, LFSaw.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0, phase=0|
+                Out.kr(out, LFSaw.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1), iphase: phase));
             }).add;
             SynthDef(\doubledeckerLfoSquare, { 
-                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
-                Out.kr(out, LFPulse.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0, phase=0|
+                Out.kr(out, LFPulse.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1), iphase: phase));
             }).add;
             SynthDef(\doubledeckerLfoRand, { 
-                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0|
+                |out, globalLfoFreq=4, pressure=0, presToGlobalLfoFreq=0, phase=0|
                 Out.kr(out, -1*LFNoise0.kr(globalLfoFreq*((pressure*presToGlobalLfoFreq) + 1)));
             }).add;
             SynthDef(\doubledeckerLfoSmooth, { 
@@ -224,7 +234,7 @@ DoubleDecker {
     *initClass {
         params = (
             globalLfoFreq: 4, presToGlobalLfoFreq: 0,
-            globalLfoShape: 0, globalLfoSync: 1, globalLfoIndividual: 1,
+            globalLfoShape: 0, globalLfoSync: 1, globalLfoIndividual: 1, lfoPhaseSpread: 0,
             pan: 0,
 
             waveform1: 1, pitchRatio1: 1,
@@ -275,21 +285,23 @@ DoubleDecker {
                 DoubleDecker.dynamicInit();
                 // "on % % % %\n".postf(voice, hz, velocity, panSpread);
                 Routine.new({
-                    var lfoLoc = (params.globalLfoIndividual > 0).if(voice, 0);
+                    var lfoLoc = DoubleDecker.lfoLocForVoice(voice);
                     if(lfos[lfoLoc] == nil, {
                         lfos[lfoLoc] = Synth.new(
                             lfoOptions[params.globalLfoShape.asInteger], 
                             [
-                                \out, lfoBusses[voice], 
+                                \out, lfoBusses[lfoLoc], 
                                 \globalLfoFreq, params.globalLfoFreq,
                                 \presToGlobalLfoFreq, params.presToGlobalLfoFreq,
-                                \pressure, 0
+                                \pressure, 0,
+                                \phase, (voice >= 3).if(0.5pi * params.lfoPhaseSpread, -0.5pi * params.lfoPhaseSpread)
                             ],
                             target:lfoGroup);
                         lfos[lfoLoc].onFree({
                             lfos[lfoLoc] = nil;
                         });
                     });
+                    // "note on for % with lfo % panSpread %\n".postf(voice, lfoLoc, panSpread);
                     if(voices[voice] == nil, {
                         var l1 = [\X, \S, \P, \B][params.waveform1];
                         var l2 = [\X, \S, \P, \B][params.waveform2];
@@ -297,9 +309,10 @@ DoubleDecker {
                         voices[voice] = Synth.new(
                             ("doubledecker" ++ l1 ++ l2), 
                             [
-                                \freq, hz, 
+                                \freq, hz,
+                                \out, 0,
                                 \velocity, velocity, 
-                                \globalLfoBus, lfoBusses[voice],
+                                \globalLfoBus, lfoBusses[lfoLoc],
                                 \noiseBuf, noiseBuf,
                                 \panSpread, panSpread,
                             ]++params.asPairs,
@@ -343,9 +356,7 @@ DoubleDecker {
                 }, {
                     if(key == \pressure, {
                         pressures[voice] = value;
-                        if(lfos[0] != nil, {
-                            lfos[0].set(key, pressures.maxItem)
-                        });
+                        lfoGroup.set(key, pressures.maxItem);
                     });
                 });
             }, "/doubledecker/set_voice");
