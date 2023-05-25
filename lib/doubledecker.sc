@@ -284,6 +284,7 @@ DoubleDecker {
                 var hz = msg[2].asFloat.clip(8, 6271.9);
                 var velocity = msg[3].asFloat;
                 var panSpread = msg[4].asFloat;
+                var countLimit = msg[5].asFloat;
                 DoubleDecker.dynamicInit();
                 // "on % % % %\n".postf(voice, hz, velocity, panSpread);
                 Routine.new({
@@ -304,14 +305,14 @@ DoubleDecker {
                         });
                     });
                     // "note on for % with lfo % panSpread %\n".postf(voice, lfoLoc, panSpread);
-                    if((voices[voice] == nil) || (counts[voice] > 5), {
+                    if((voices[voice] == nil) || (counts[voice] > countLimit), {
                         var l1 = [\X, \S, \P, \B][params.waveform1];
                         var l2 = [\X, \S, \P, \B][params.waveform2];
                         var v;
                         // "waveform 1 % l1 %\n".postf(params.waveform1, l1);
                         if (voices[voice] != nil, {
                             counts[voice] = 0;
-                            // "force release %\n".postf(voice);
+                            //"force release %\n".postf(voice);
                             voices[voice].release(0.01); // Release fairly immediately, but try to avoid clicking. 10ms.
                         });
                         v = Synth.new(
@@ -330,6 +331,7 @@ DoubleDecker {
                             var allOff;
                             if (voices[voice] === v, {
                                 voices[voice] = nil;
+                                counts[voice] = 0;
                             });
                             allOff = voices.every({|x, i| x == nil});                            
 

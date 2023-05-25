@@ -335,6 +335,10 @@ function Player:note_on(note, vel, properties)
     local v = slot.id - 1
     local spread_amount = params:get("doubledecker_voice_spread")
     local detune = params:get("doubledecker_detune")
+    local reuse_count = 5
+    if self.alloc.polyphony == 1 then
+        reuse_count = 100
+    end
     slot.on_release = function()
         --print("release", note, slot.id)
         -- TODO: Find any voices this covered.
@@ -358,8 +362,9 @@ function Player:note_on(note, vel, properties)
                 vv,
                 freq * (1.0594 ^ (s * detune)),
                 vel,
-                s * spread_amount
-            });
+                s * spread_amount,
+                reuse_count,
+            })
     end
     self.notes[note] = slot;
 end
