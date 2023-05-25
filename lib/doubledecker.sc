@@ -311,7 +311,7 @@ DoubleDecker {
                         // "waveform 1 % l1 %\n".postf(params.waveform1, l1);
                         if (voices[voice] != nil, {
                             counts[voice] = 0;
-                            "force release %\n".postf(voice);
+                            // "force release %\n".postf(voice);
                             voices[voice].release(0.01); // Release fairly immediately, but try to avoid clicking. 10ms.
                         });
                         v = Synth.new(
