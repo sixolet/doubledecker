@@ -1,10 +1,11 @@
 DoubleDecker {
-    classvar <params, <voices, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseBuf, <pressures;
+    classvar <params, <voices, <counts, <lfos, <group, <lfoGroup, <lfoBusses, <lastAction, <noiseBuf, <pressures;
 
     *dynamicInit {
         if (group == nil, {
             var arr = FloatArray.fill(48000 * 4.0, {1.0.rand2});
             noiseBuf = Buffer.loadCollection(Server.default, arr);
+            "NOISE buffer is %\n".postf(noiseBuf.bufnum);
 	        group = Group.new;
             lfoGroup = Group.before(group);
             lfoBusses = 8.collect({Bus.control(Server.default, 1)});
@@ -266,6 +267,7 @@ DoubleDecker {
             amp: 0.25,      
         );
 		voices = nil!8;
+        counts = 0!8;
         pressures = 0!8;
         lfos = nil!8;
 		lastAction = 0;
@@ -302,11 +304,17 @@ DoubleDecker {
                         });
                     });
                     // "note on for % with lfo % panSpread %\n".postf(voice, lfoLoc, panSpread);
-                    if(voices[voice] == nil, {
+                    if((voices[voice] == nil) || (counts[voice] > 5), {
                         var l1 = [\X, \S, \P, \B][params.waveform1];
                         var l2 = [\X, \S, \P, \B][params.waveform2];
+                        var v;
                         // "waveform 1 % l1 %\n".postf(params.waveform1, l1);
-                        voices[voice] = Synth.new(
+                        if (voices[voice] != nil, {
+                            counts[voice] = 0;
+                            "force release %\n".postf(voice);
+                            voices[voice].release(0.01); // Release fairly immediately, but try to avoid clicking. 10ms.
+                        });
+                        v = Synth.new(
                             ("doubledecker" ++ l1 ++ l2), 
                             [
                                 \freq, hz,
@@ -317,9 +325,12 @@ DoubleDecker {
                                 \panSpread, panSpread,
                             ]++params.asPairs,
                             target: group);
-                        voices[voice].onFree({
+                        voices[voice] = v;
+                        v.onFree({
                             var allOff;
-                            voices[voice] = nil;
+                            if (voices[voice] === v, {
+                                voices[voice] = nil;
+                            });
                             allOff = voices.every({|x, i| x == nil});                            
 
                             if(params.globalLfoSync > 0, {
@@ -334,7 +345,8 @@ DoubleDecker {
                             });
                         });
                     }, {
-                        voices[voice].set(\freq, hz, \velocity, velocity, \gate, 1)
+                        voices[voice].set(\freq, hz, \velocity, velocity, \gate, 1);
+                        counts[voice] = counts[voice] + 1;
                     });
                 }).play;            
             }, "/doubledecker/note_on");
