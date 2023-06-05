@@ -87,7 +87,11 @@ DoubleDecker {
                     mix, globalBrilliance, globalResonance,
                     detune, drift,
                     pitchEnvAmount, portomento,
-                    amp|
+                    amp,
+                    // sends
+                    sendABus, sendA,
+                    sendBBus, sendB
+                    |
                     var keyRatio = freq/261.63;
                     var layer = { 
                         | waveform, keyRatio,
@@ -177,7 +181,7 @@ DoubleDecker {
                         sound = layerAmp*ampEnv*ampRatio*sound;              
                         sound;
                     };
-                    var globalLfo, modFreq, noiseUgen, layer1, layer2, mixed, detuneRatio, driftAddition, pitchEnv;
+                    var globalLfo, modFreq, noiseUgen, layer1, layer2, mixed, detuneRatio, driftAddition, pitchEnv, panned;
                     globalLfo = In.kr(globalLfoBus, 1);
                     detuneRatio = detune.linexp(0, 1, 1, 2**(1/12));
                     driftAddition = 3*drift*LFNoise1.kr(0.01);
@@ -227,7 +231,10 @@ DoubleDecker {
                     mixed = LinSelectX.ar(mix, [layer1, layer2]);
                     DetectSilence.ar(mixed+Impulse.ar(0), doneAction: Done.freeSelf);
                     mixed = amp*mixed;
-                    Out.ar(out, Pan2.ar(mixed, pan + panSpread));
+                    panned = Pan2.ar(mixed, pan + panSpread);
+                    Out.ar(out, panned);
+                    Out.ar(sendABus, sendA*panned);
+                    Out.ar(sendBBus, sendB*panned);
                 }).add;
             };
     }
@@ -264,7 +271,7 @@ DoubleDecker {
             mix: 0.5, globalBrilliance: 0, globalResonance: 0,
             detune: 0, drift: 0,
             pitchEnvAmount: 0, portomento: 0,
-            amp: 0.25,      
+            amp: 0.25, sendA: 0, sendB: 0,
         );
 		voices = nil!8;
         counts = 0!8;
@@ -324,6 +331,8 @@ DoubleDecker {
                                 \globalLfoBus, lfoBusses[lfoLoc],
                                 \noiseBuf, noiseBuf,
                                 \panSpread, panSpread,
+                                \sendABus, ~sendA ? Server.default.outputBus,
+                                \sendBBus, ~sendB ? Server.default.outputBus, 
                             ]++params.asPairs,
                             target: group);
                         voices[voice] = v;
