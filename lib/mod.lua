@@ -46,7 +46,7 @@ end
 
 function Player:add_params()
     local loading = true
-    params:add_group("doubledecker_group", "doubledecker", 96)
+    params:add_group("doubledecker_group", "doubledecker", 98)
 
     local function control_param(id, name, key, spec, binding)
         params:add_control(id, name, spec)
@@ -142,6 +142,10 @@ function Player:add_params()
         controlspec.new(0, 1, 'lin', 0, 0.5), bind:at(3, 1, 1, 1, "mix"))
     taper_param("doubledecker_amp", "amp", "amp",
         0, 1, 0.25, 2, nil, bind:at(3, 1, 2, 2, "amp"))
+    taper_param("doubledecker_send_a", "send a", "sendA",
+        0, 1, 0, 2, nil, nil)
+    taper_param("doubledecker_send_a", "send b", "sendB",
+        0, 1, 0, 2, nil, nil)        
     control_param("doubledecker_pan", "pan", "pan",
         controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 1, 1, 2, "pan"))
     control_param("doubledecker_detune", "detune", "detune",
