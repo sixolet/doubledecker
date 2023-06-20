@@ -144,7 +144,7 @@ function Player:add_params()
         0, 1, 0.25, 2, nil, bind:at(3, 1, 2, 2, "amp"))
     taper_param("doubledecker_send_a", "send a", "sendA",
         0, 1, 0, 2, nil, nil)
-    taper_param("doubledecker_send_a", "send b", "sendB",
+    taper_param("doubledecker_send_b", "send b", "sendB",
         0, 1, 0, 2, nil, nil)        
     control_param("doubledecker_pan", "pan", "pan",
         controlspec.new( -1, 1, 'lin', 0, 0), bind:at(3, 1, 1, 2, "pan"))
